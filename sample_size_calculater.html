@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>感度・特異度サンプルサイズ計算機</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 20px auto; padding: 0 10px; line-height: 1.6; }
+        h1, h2 { color: #333; }
+        label { display: block; margin: 10px 0 5px; }
+        input[type="number"], input[type="text"] { width: 100%; padding: 8px; box-sizing: border-box; }
+        button { margin-top: 15px; padding: 10px 20px; font-size: 1rem; }
+        .result { margin-top: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; }
+        .note { font-size: 0.9rem; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>感度・特異度のサンプルサイズ計算機 (95% CI ±d)</h1>
+    <p>この計算機では、診断テストの感度 (Se) と特異度 (Sp) を 95% 信頼区間で ±d の許容誤差内に収めるために必要な陽性例数 (n₊)・陰性例数 (n₋) を計算します。また、有病率 (事前確率) を入力すると、全被験者数の目安も算出します。</p>
+    <h2>入力</h2>
+    <form id="calcForm">
+        <label for="se">目標感度 Se (0〜1 の小数で入力、例: 0.95)</label>
+        <input type="number" id="se" name="se" step="0.01" min="0" max="1" required>
+        <label for="sp">目標特異度 Sp (0〜1 の小数で入力、例: 0.90)</label>
+        <input type="number" id="sp" name="sp" step="0.01" min="0" max="1" required>
+        <label for="d">許容誤差 d (上下幅 ±d, 0〜1 の小数、例: 0.05)</label>
+        <input type="number" id="d" name="d" step="0.01" min="0" max="1" required>
+        <label for="prevalence">有病率 p (0〜1 の小数で入力、未入力または 0 の場合は全被験者数を計算しません)</label>
+        <input type="number" id="prevalence" name="prevalence" step="0.01" min="0" max="1" placeholder="例: 0.10">
+        <label for="dropout">脱落率 (0〜1 の小数, 例: 0.10) <span class="note">(不明なら 0 と入力)</span></label>
+        <input type="number" id="dropout" name="dropout" step="0.01" min="0" max="1" placeholder="例: 0.10">
+        <button type="button" onclick="calculateSampleSize()">計算</button>
+    </form>
+    <div id="result" class="result" style="display:none;"></div>
+
+    <script>
+    function calculateSampleSize() {
+        const se = parseFloat(document.getElementById('se').value);
+        const sp = parseFloat(document.getElementById('sp').value);
+        const d = parseFloat(document.getElementById('d').value);
+        const pInput = document.getElementById('prevalence').value;
+        const dropoutInput = document.getElementById('dropout').value;
+        if (isNaN(se) || isNaN(sp) || isNaN(d) || se < 0 || se > 1 || sp < 0 || sp > 1 || d <= 0 || d > 1) {
+            alert('Se, Sp, d の値を正しく入力してください。');
+            return;
+        }
+        const Z = 1.96; // 95% CI
+        // n₊, n₋ の計算: n = Z^2 * p*(1-p) / d^2
+        const nPosRaw = (Z * Z * se * (1 - se)) / (d * d);
+        const nNegRaw = (Z * Z * sp * (1 - sp)) / (d * d);
+        const nPos = Math.ceil(nPosRaw);
+        const nNeg = Math.ceil(nNegRaw);
+        let resultHtml = '<h2>結果</h2>';
+        resultHtml += '<p>必要な陽性例数 (n₊): <strong>' + nPos + ' 例</strong> (計算値: ' + nPosRaw.toFixed(2) + ')</p>';
+        resultHtml += '<p>必要な陰性例数 (n₋): <strong>' + nNeg + ' 例</strong> (計算値: ' + nNegRaw.toFixed(2) + ')</p>';
+        if (pInput !== '' && !isNaN(parseFloat(pInput))) {
+            const p = parseFloat(pInput);
+            if (p <= 0 || p >= 1) {
+                resultHtml += '<p class="note">有病率 p は 0〜1 の間の値を入力してください。</p>';
+            } else {
+                const totalPos = nPos / p;
+                const totalNeg = nNeg / (1 - p);
+                const Nraw = Math.max(totalPos, totalNeg);
+                // 脱落補正
+                let Nadj = Nraw;
+                if (dropoutInput !== '' && !isNaN(parseFloat(dropoutInput))) {
+                    const dropout = parseFloat(dropoutInput);
+                    if (dropout < 0 || dropout >= 1) {
+                        resultHtml += '<p class="note">脱落率は 0 以上 1 未満の値を入力してください。脱落補正しません。</p>';
+                    } else {
+                        Nadj = Nraw / (1 - dropout);
+                    }
+                }
+                const N = Math.ceil(Nraw);
+                const N_adjusted = Math.ceil(Nadj);
+                resultHtml += '<p>有病率 p = ' + p + ' を仮定した場合の全被験者数目安:</p>';
+                resultHtml += '<ul>';
+                resultHtml += '<li>陽性例確保のため: ' + nPos + ' / p = ' + totalPos.toFixed(2) + ' → ' + Math.ceil(totalPos) + ' 名</li>';
+                resultHtml += '<li>陰性例確保のため: ' + nNeg + ' / (1-p) = ' + totalNeg.toFixed(2) + ' → ' + Math.ceil(totalNeg) + ' 名</li>';
+                resultHtml += '<li>必要な総被験者数: <strong>' + N + ' 名</strong> (計算値: ' + Nraw.toFixed(2) + ')</li>';
+                if (dropoutInput !== '' && !isNaN(parseFloat(dropoutInput)) && parseFloat(dropoutInput) > 0 && parseFloat(dropoutInput) < 1) {
+                    resultHtml += '<li>脱落率 ' + dropoutInput + ' を考慮した場合: <strong>' + N_adjusted + ' 名</strong></li>';
+                }
+                resultHtml += '</ul>';
+            }
+        } else {
+            resultHtml += '<p class="note">有病率を入力すると全被験者数の目安を計算できます。</p>';
+        }
+        resultHtml += '<hr>';
+        resultHtml += '<h3>計算式</h3>';
+        resultHtml += '<p>n₊ = Z² × Se × (1−Se) / d²<br>n₋ = Z² × Sp × (1−Sp) / d²<br>（95% CI の場合 Z = 1.96）</p>';
+        resultHtml += '<p>全被験者数 N = max(n₊/p, n₋/(1−p))</p>';
+        resultHtml += '<p class="note">脱落率を x とすると、N / (1−x) として補正します。</p>';
+        document.getElementById('result').innerHTML = resultHtml;
+        document.getElementById('result').style.display = 'block';
+    }
+    </script>
+    <footer>
+        <p class="note">参考: Reitsma JB et al. 診断精度研究のサンプルサイズ推定、Newcombe RG. 比率のCI、Zhou XH et al. 統計的方法など。</p>
+    </footer>
+</body>
+</html>
