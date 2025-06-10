@@ -5,6 +5,8 @@
   <meta charset="UTF-8">
   <title>Bayes検査ツール</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
   <style>
     body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 1em; }
     label { display: block; margin-top: 0.5em; }
@@ -13,7 +15,29 @@
   </style>
 </head>
 <body>
-  <h2>Bayes検査ツール</h2>
+  <h1>Bayes検査ツール</h1>
+  <h2>ベイズ則による事後確率</h2>
+  <p>事前確率を \(P(D)\)、感度を \(Se\)、特異度を \(Sp\) とすると：</p>
+
+  <h3>陽性時の事後確率</h3>
+  \[
+    \begin{aligned}
+      P(D \mid +) 
+      &=\frac{ \underbrace{\frac{P(D)}{1-P(D)}}_{事前オッズ} \cdot \underbrace{LR^{+}}_{陽性尤度比}}{ 1+ \frac{P(D)}{1-P(D)} \cdot LR^{+} }\\
+      &=\frac{\frac{P(D)}{1-P(D)} \cdot \frac{Se}{1-Sp}}{1+\frac{P(D)}{1-P(D)} \cdot \frac{Se}{1-Sp}} \\
+      &= \frac{Se \times P(D)}{Se\,P(D) + (1 - Sp)\,(1 - P(D))}
+    \end{aligned}
+  \]
+
+  <h3>陰性時の事後確率</h3>
+  \[
+    \begin{aligned}
+      P(D \mid -)
+      &=\frac{ \underbrace{\frac{P(D)}{1-P(D)}}_{事前オッズ} \cdot \underbrace{LR^{-}}_{陰性尤度比}}{ 1+ \frac{P(D)}{1-P(D)} \cdot LR^{-} }\\
+      &=\frac{\frac{P(D)}{1-P(D)} \cdot \frac{1-Se}{Sp}}{1+\frac{P(D)}{1-P(D)} \cdot \frac{1-Se}{Sp}} \\
+      &= \frac{(1 - Se)\,P(D)}{(1 - Se)\,P(D) + Sp\,(1 - P(D))}
+    \end{aligned}
+  \]
   <label>事前確率 p (0–1): <input id="p" type="number" min="0.001" max="0.999" step="0.001" value="0.1"></label>
   <label>感度 Se (0–1): <input id="Se" type="number" min="0.1" max="0.99" step="0.01" value="0.9"></label>
   <label>特異度 Sp (0–1): <input id="Sp" type="number" min="0.1" max="0.99" step="0.01" value="0.9"></label>
