@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>UNS（Ullanlinna Narcolepsy Scale）日本語版スクリーニング</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
+    h1, h2 { margin-top: 1.5em; }
+    .item { margin-bottom: 1em; }
+    .label { font-weight: bold; }
+    .desc { margin-left: 1em; color: #555; font-size: 0.9em; }
+    select, input[type="number"] { width: 100%; max-width: 320px; margin-top: 0.3em; }
+    #result { margin-top: 1.5em; font-weight: bold; }
+    .note { font-size: 0.9em; color: #666; margin-bottom: 1em; }
+  </style>
+</head>
+<body>
+  <h1>UNS（Ullanlinna Narcolepsy Scale）日本語版（参考訳）スクリーニング</h1>
+  <p class="note">
+    ※ 以下は英語版UNSの意味内容をもとに筆者作成の「参考訳」です。実運用時は必ずTaniokaらの日本語版（J-UNS）で提供された正式訳質問文に置き換えてください。<br>
+    ※ カットオフ：14点以上をUNS陽性としますが、臨床集団では最適カットオフが変わる場合があります（例：J-UNS検証では18点など）。<br>
+    ※ 事前確率（有病率）、感度、特異度はデフォルトで日本一般集団0.16%、文献値感度100%、特異度98.8%を設定しています。必要に応じて変更してください。
+  </p>
+
+  <form id="unsForm">
+    <h2>設問 1～11: 頻度を 0～4 で選択してください</h2>
+    <div id="unsItems"></div>
+
+    <h2>Bayes計算パラメータ設定</h2>
+    <div class="item">
+      <label class="label" for="prevalenceInput">事前確率 (％)</label>
+      <div class="desc">日本一般集団のナルコレプシー有病率例: 0.16 (%) </div>
+      <input type="number" id="prevalenceInput" min="0" max="100" step="0.01" value="0.16">
+    </div>
+    <div class="item">
+      <label class="label" for="sensitivityInput">感度 (％)</label>
+      <div class="desc">UNS文献値: 100 (%)（Hublinら J Sleep Res 1994;3:52–59報告） :contentReference[oaicite:13]{index=13}</div>
+      <input type="number" id="sensitivityInput" min="0" max="100" step="0.1" value="100">
+    </div>
+    <div class="item">
+      <label class="label" for="specificityInput">特異度 (％)</label>
+      <div class="desc">UNS文献値: 98.8 (%)</div>
+      <input type="number" id="specificityInput" min="0" max="100" step="0.1" value="98.8">
+    </div>
+
+    <button type="button" onclick="calculateUNS()">スコア計算 & PPV算出</button>
+  </form>
+
+  <div id="result"></div>
+
+  <script>
+    // 参考訳質問文：必ず正式版に置き換えてください
+    const unsQuestions = [
+      // 1. 感情惹起性筋無力関連
+      "1. 笑ったり、驚いたり、怒ったり、喜んだりなど強い感情を抱いたときに、突然体のどこかの筋力が抜けたように感じることがありますか？",
+      "2. そのような筋力低下のエピソードは、どれくらいの頻度で起こりますか？",
+      // 2. 日中の異常な眠気・居眠り関連
+      "3. 日中に、意図せず突然眠ってしまうことがありますか？",
+      "4. 会話中や読書中、運転中など、本来眠るつもりのない場面で急に眠気に襲われ、居眠りしてしまうことがありますか？",
+      "5. そのような日中の居眠りや仮眠発作は、どれくらいの頻度で起こりますか？",
+      // 3. 夜間睡眠関連
+      "6. 夜、布団に入ってから眠りにつくまでに長時間かかり、寝つきが悪いと感じることがありますか？",
+      "7. 夜間に何度も目が覚め、連続して眠ることが難しいと感じることがありますか？",
+      "8. 寝入りばなや目覚め直前に、意識ははっきりしているのに体が動かせない睡眠麻痺を経験することがありますか？",
+      "9. 寝入りばなまたは目覚めの瞬間に、人影や声など実際にはないものを見たり聞いたりする幻覚を経験することがありますか？",
+      // 4. その他
+      "10. 日常生活で極度に疲労を感じたり、不規則な睡眠リズムのせいで日中の活動が著しく制限されることがありますか？",
+      "11. 他の睡眠障害（例：睡眠時無呼吸症候群など）や薬剤の影響ではなく、主に日中の強い眠気や情動惹起性筋無力が中心であると自覚しますか？"
+    ];
+
+    // 頻度選択肢 0～4
+    const freqOptions = [
+      { value: 0, text: "0：まったくない／経験なし" },
+      { value: 1, text: "1：ごくまれに（年に数回程度）" },
+      { value: 2, text: "2：たまに（月に1～3回程度）" },
+      { value: 3, text: "3：しばしば（週に1～3回程度）" },
+      { value: 4, text: "4：頻繁に（ほぼ毎日）" }
+    ];
+
+    // 質問文を描画
+    const unsContainer = document.getElementById("unsItems");
+    unsQuestions.forEach((qText, idx) => {
+      const div = document.createElement("div");
+      div.className = "item";
+      div.innerHTML = `
+        <div class="label">${qText}</div>
+        <select id="q${idx}">
+          ${freqOptions.map(opt => `<option value="${opt.value}">${opt.text}</option>`).join("")}
+        </select>
+      `;
+      unsContainer.appendChild(div);
+    });
+
+    function calculateUNS() {
+    // 1) UNS合計スコア計算
+    let totalScore = 0;
+    for (let i = 0; i < unsQuestions.length; i++) {
+      const val = parseInt(document.getElementById(`q${i}`).value, 10);
+      totalScore += isNaN(val) ? 0 : val;
+    }
+    // 2) 陽性判定（カットオフ14点）
+    const cutoff = 14;
+    const isPositive = totalScore >= cutoff;
+    // 3) Bayes計算パラメータ取得
+    const p_input = parseFloat(document.getElementById("prevalenceInput").value);
+    const prevalence = isNaN(p_input) ? null : p_input / 100.0;
+    const se_input = parseFloat(document.getElementById("sensitivityInput").value);
+    const sensitivity = isNaN(se_input) ? null : se_input / 100.0;
+    const sp_input = parseFloat(document.getElementById("specificityInput").value);
+    const specificity = isNaN(sp_input) ? null : sp_input / 100.0;
+
+    let resultMsg = `UNS合計スコア: <strong>${totalScore}</strong><br>`;
+    resultMsg += `UNS判定: <strong>${isPositive ? `陽性 (スコア≥${cutoff})` : `陰性 (スコア<${cutoff})`}</strong>`;
+
+    // 4) Bayes計算
+    if (prevalence === null || sensitivity === null || specificity === null) {
+      resultMsg += `<br><span style="color:red;">事前確率・感度・特異度を正しく入力してください。</span>`;
+    } else {
+      // 陽性時: PPV = Se*p / (Se*p + (1-Sp)*(1-p))
+      // 陰性時: P(Disease|Negative) = (1-Se)*p / ((1-Se)*p + Sp*(1-p))
+      if (isPositive) {
+        const num = sensitivity * prevalence;
+        const denom = sensitivity * prevalence + (1 - specificity) * (1 - prevalence);
+        if (denom > 0) {
+          const ppv = num / denom;
+          resultMsg += `<br>Bayes計算による事後確率 (PPV): <strong>${(ppv * 100).toFixed(2)}%</strong>（事前確率 ${(prevalence*100).toFixed(2)}%、感度 ${(sensitivity*100).toFixed(1)}%、特異度 ${(specificity*100).toFixed(1)}% と仮定）`;
+        } else {
+          resultMsg += `<br><span style="color:red;">PPV計算で分母が0です。パラメータを確認してください。</span>`;
+        }
+      } else {
+        // 陰性時: false negative確率 = P(Disease|Negative)
+        const numN = (1 - sensitivity) * prevalence;
+        const denomN = numN + specificity * (1 - prevalence);
+        if (denomN > 0) {
+          const p_disease_given_negative = numN / denomN;
+          const npv = 1 - p_disease_given_negative;
+          resultMsg += `<br>Bayes計算による陰性時の疾患あり確率: <strong>${(p_disease_given_negative * 100).toFixed(4)}%</strong>（false negative確率）<br>`;
+          resultMsg += `Bayes計算によるNPV（陰性時に疾患なしである確率）: <strong>${(npv * 100).toFixed(2)}%</strong>（事前確率 ${(prevalence*100).toFixed(2)}%、感度 ${(sensitivity*100).toFixed(1)}%、特異度 ${(specificity*100).toFixed(1)}% と仮定）`;
+        } else {
+          resultMsg += `<br><span style="color:red;">陰性時の計算で分母が0です。パラメータを確認してください。</span>`;
+        }
+      }
+    }
+
+    document.getElementById("result").innerHTML = resultMsg;
+  }
+  </script>
+</body>
+</html>
