@@ -4,11 +4,13 @@
   <meta charset="UTF-8">
   <title>PNSQ スクリーニングテスト</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    h2 { margin-top: 1em; }
-    .item { margin-bottom: 0.5em; }
-    select { width: 100%; max-width: 300px; }
-    #result { margin-top: 1em; font-weight: bold; }
+    body { font-family: sans-serif; padding: 20px; line-height: 1.5; }
+    h2 { margin-top: 1.5em; }
+    .item { margin-bottom: 1em; }
+    .label { font-weight: bold; }
+    .desc { margin-left: 1em; color: #555; }
+    select { width: 100%; max-width: 320px; margin-top: 0.2em; }
+    #result { margin-top: 1.5em; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -23,49 +25,91 @@
   <div id="result"></div>
 
   <script>
-    // 頻度項目のラベル（実際の文言はTable1参照）
-    const freqLabels = [
-      "日中の異常な眠気", "眠気による活動中断", "日中の居眠り",
-      "夜間の睡眠分断", "睡眠麻痺", "幻覚（入眠時）",
-      "幻覚（覚醒時）", "その他の睡眠異常"
+    // 各項目のラベルと説明文
+    const freqItems = [
+      {
+        label: "1. 日中の異常な眠気",
+        desc: "日中に急に強い眠気に襲われ、集中力が続かず、目を開けているのがつらくなる状態。運転中や会議中など、ふとした瞬間に居眠りしてしまうことがあります。"  /* :contentReference[oaicite:0]{index=0} */
+      },
+      {
+        label: "2. 眠気による活動中断",
+        desc: "起きて活動している最中に、まるで睡魔に抵抗できずに作業や会話を中断してしまうこと。例えば、料理や読書をしていても急に動けなくなるようなイメージです。"  /* :contentReference[oaicite:1]{index=1} */
+      },
+      {
+        label: "3. 日中の居眠り",
+        desc: "外出先や会議、授業中などに短時間でも居眠りをしてしまうこと。「ちょっと仮眠」のつもりが、気付いたら10分以上寝ている、という経験を指します。"  /* :contentReference[oaicite:2]{index=2} */
+      },
+      {
+        label: "4. 夜間の睡眠分断",
+        desc: "夜間に何度も目が覚めてしまい、まとめて眠れない状態。何度もトイレに行く、夢で飛び起きるなどが原因で、深い睡眠が取れにくくなります。"  /* :contentReference[oaicite:3]{index=3} */
+      },
+      {
+        label: "5. 睡眠麻痺",
+        desc: "意識ははっきりしているのに、寝入りばなや目覚めの直前・直後に身体を動かせない状態。数秒～数十秒続き、不安感を伴うことがあります。"  /* :contentReference[oaicite:4]{index=4} */
+      },
+      {
+        label: "6. 幻覚（入眠時）",
+        desc: "まさに「寝ようとしている瞬間」に現れる幻覚。人影が見えたり、声が聞こえたりするもので、意識が半分夢の中にある状態です。"  /* :contentReference[oaicite:5]{index=5} */
+      },
+      {
+        label: "7. 幻覚（覚醒時）",
+        desc: "目が覚める瞬間に見る幻覚。視界に何かが動いたように見えたり、音が聞こえたりしますが、完全に起きると消えます。"  /* :contentReference[oaicite:6]{index=6} */
+      },
+      {
+        label: "8. その他の睡眠異常",
+        desc: "ナルコレプシー以外のよくある睡眠トラブル例：いびき・睡眠時無呼吸、むずむず脚症候群、不眠症、REM睡眠行動障害など。"  /* :contentReference[oaicite:7]{index=7} */
+      }
     ];
-    // 有無項目のラベル
-    const binLabels = [
-      "カタプレキシー（感情で力が抜ける）",
-      "入眠片麻痺",
-      "覚醒片麻痺"
-    ];
-    // 値のマッピング
-    const freqValues = {
-      "never": 0, "less1m": 1, "1-3m": 2, "1-3w": 3, "4-6w": 4, "daily": 5
-    };
 
-    // 頻度セレクトを生成
+    const binItems = [
+      {
+        label: "9. カタプレキシー（感情で力が抜ける）",
+        desc: "笑ったり驚いたりしたときに、腕や脚、顔の筋肉の力が急に抜けて動けなくなる症状。物を落としたり、転倒したりすることがあります。"  /* :contentReference[oaicite:8]{index=8} */
+      },
+      {
+        label: "10. 入眠片麻痺",
+        desc: "「寝よう」と思った瞬間に、左右どちらかの腕や脚だけが動かしにくくなる状態。全身ではなく一部だけ麻痺します。"  /* :contentReference[oaicite:9]{index=9} */
+      },
+      {
+        label: "11. 覚醒片麻痺",
+        desc: "目が覚める直前・直後に、左右どちらかの腕や脚だけが動かしにくくなる一時的な状態です。"  /* :contentReference[oaicite:10]{index=10} */
+      }
+    ];
+
+    // 頻度セレクト用ラベル
+    const freqOptions = [
+      { value: "never", text: "Never" },
+      { value: "less1m", text: "<1回/月" },
+      { value: "1-3m", text: "1–3回/月" },
+      { value: "1-3w", text: "1–3回/週" },
+      { value: "4-6w", text: "4–6回/週" },
+      { value: "daily", text: "毎日/夜間" }
+    ];
+    const freqValues = { never:0, less1m:1, "1-3m":2, "1-3w":3, "4-6w":4, daily:5 };
+
+    // 頻度項目を描画
     const freqContainer = document.getElementById("frequencyItems");
-    freqLabels.forEach((label, i) => {
+    freqItems.forEach((item, i) => {
       const div = document.createElement("div");
       div.className = "item";
       div.innerHTML = `
-        <label>${i+1}. ${label}</label><br>
+        <div class="label">${item.label}</div>
+        <div class="desc">${item.desc}</div>
         <select id="f${i}">
-          <option value="never">Never</option>
-          <option value="less1m">&lt;1回/月</option>
-          <option value="1-3m">1–3回/月</option>
-          <option value="1-3w">1–3回/週</option>
-          <option value="4-6w">4–6回/週</option>
-          <option value="daily">毎日</option>
+          ${freqOptions.map(o => `<option value="${o.value}">${o.text}</option>`).join("")}
         </select>
       `;
       freqContainer.appendChild(div);
     });
 
-    // 有無セレクトを生成
+    // Yes/No項目を描画
     const binContainer = document.getElementById("binaryItems");
-    binLabels.forEach((label, i) => {
+    binItems.forEach((item, i) => {
       const div = document.createElement("div");
       div.className = "item";
       div.innerHTML = `
-        <label>${i+9}. ${label}</label><br>
+        <div class="label">${item.label}</div>
+        <div class="desc">${item.desc}</div>
         <select id="b${i}">
           <option value="0">No</option>
           <option value="1">Yes</option>
@@ -76,26 +120,22 @@
 
     function calculate() {
       let total = 0;
-      // 頻度項目を合計
-      for (let i = 0; i < freqLabels.length; i++) {
-        const sel = document.getElementById(`f${i}`).value;
-        total += freqValues[sel];
+      // 頻度
+      for (let i = 0; i < freqItems.length; i++) {
+        total += freqValues[document.getElementById(`f${i}`).value];
       }
-      // 有無項目を合計
-      for (let i = 0; i < binLabels.length; i++) {
+      // Yes/No
+      for (let i = 0; i < binItems.length; i++) {
         total += parseInt(document.getElementById(`b${i}`).value, 10);
       }
-      // カテゴリーと事後確率
+      // 結果判定
       let category, postProb;
       if (total > 28) {
-        category = "PNSQ⁺ (可能性高)";
-        postProb = "約79.6%";  // :contentReference[oaicite:5]{index=5}
+        category = "PNSQ⁺ (可能性高)"; postProb = "約79.6%";  /*  */
       } else if (total >= 19) {
-        category = "PNSQ⁰ (要注意)";
-        postProb = "約18.4%";  // :contentReference[oaicite:6]{index=6}
+        category = "PNSQ⁰ (要注意)"; postProb = "約18.4%";  /*  */
       } else {
-        category = "PNSQ⁻ (可能性低)";
-        postProb = "約2.0%";   // :contentReference[oaicite:7]{index=7}
+        category = "PNSQ⁻ (可能性低)"; postProb = "約2.0%";   /*  */
       }
       document.getElementById("result").innerHTML =
         `合計スコア: <strong>${total}</strong><br>` +
