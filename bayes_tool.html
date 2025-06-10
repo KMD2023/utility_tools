@@ -1,0 +1,68 @@
+<!-- bayes_tool.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Bayes検査ツール</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 1em; }
+    label { display: block; margin-top: 0.5em; }
+    input { width: 100%; }
+    canvas { margin-top: 1em; }
+  </style>
+</head>
+<body>
+  <h2>Bayes検査ツール</h2>
+  <label>事前確率 p (0–1): <input id="p" type="number" min="0.001" max="0.999" step="0.001" value="0.1"></label>
+  <label>感度 Se (0–1): <input id="Se" type="number" min="0.1" max="0.99" step="0.01" value="0.9"></label>
+  <label>特異度 Sp (0–1): <input id="Sp" type="number" min="0.1" max="0.99" step="0.01" value="0.9"></label>
+  <button id="calc">計算・表示</button>
+
+  <div id="results" style="margin-top:1em;"></div>
+  <canvas id="chart" width="400" height="200"></canvas>
+
+  <script>
+    const pInput = document.getElementById('p'),
+          SeInput = document.getElementById('Se'),
+          SpInput = document.getElementById('Sp'),
+          resDiv = document.getElementById('results'),
+          ctx = document.getElementById('chart').getContext('2d');
+
+    let chart;
+    function calc() {
+      const p = parseFloat(pInput.value),
+            Se = parseFloat(SeInput.value),
+            Sp = parseFloat(SpInput.value);
+      const LRp = Se / (1 - Sp),
+            LRn = (1 - Se) / Sp,
+            oddsPre = p / (1 - p),
+            oddsPos = oddsPre * LRp,
+            oddsNeg = oddsPre * LRn,
+            pPos = oddsPos / (1 + oddsPos),
+            pNeg = oddsNeg / (1 + oddsNeg);
+
+      resDiv.innerHTML = `
+        <p>陽性尤度比 LR⁺ = ${LRp.toFixed(2)}</p>
+        <p>陰性尤度比 LR⁻ = ${LRn.toFixed(2)}</p>
+        <p>事後確率 (陽性時) = ${(pPos*100).toFixed(1)}％</p>
+        <p>事後確率 (陰性時) = ${(pNeg*100).toFixed(1)}％</p>
+      `;
+
+      const data = [p, pPos, pNeg];
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['事前確率', '陽性後', '陰性後'],
+          datasets: [{ label: '確率', data }]
+        },
+        options: { scales: { y: { min:0, max:1 } } }
+      });
+    }
+
+    document.getElementById('calc').addEventListener('click', calc);
+    window.onload = calc;
+  </script>
+</body>
+</html>
