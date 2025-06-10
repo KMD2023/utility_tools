@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>PNSQ スクリーニングテスト</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    h2 { margin-top: 1em; }
+    .item { margin-bottom: 0.5em; }
+    select { width: 100%; max-width: 300px; }
+    #result { margin-top: 1em; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>PNSQ（ナルコレプシー スクリーニング）</h1>
+  <form id="pnsqForm">
+    <h2>1–8: 頻度を選択してください</h2>
+    <div id="frequencyItems"></div>
+    <h2>9–11: 有無を選択してください</h2>
+    <div id="binaryItems"></div>
+    <button type="button" onclick="calculate()">スコアを計算</button>
+  </form>
+  <div id="result"></div>
+
+  <script>
+    // 頻度項目のラベル（実際の文言はTable1参照）
+    const freqLabels = [
+      "日中の異常な眠気", "眠気による活動中断", "日中の居眠り",
+      "夜間の睡眠分断", "睡眠麻痺", "幻覚（入眠時）",
+      "幻覚（覚醒時）", "その他の睡眠異常"
+    ];
+    // 有無項目のラベル
+    const binLabels = [
+      "カタプレキシー（感情で力が抜ける）",
+      "入眠片麻痺",
+      "覚醒片麻痺"
+    ];
+    // 値のマッピング
+    const freqValues = {
+      "never": 0, "less1m": 1, "1-3m": 2, "1-3w": 3, "4-6w": 4, "daily": 5
+    };
+
+    // 頻度セレクトを生成
+    const freqContainer = document.getElementById("frequencyItems");
+    freqLabels.forEach((label, i) => {
+      const div = document.createElement("div");
+      div.className = "item";
+      div.innerHTML = `
+        <label>${i+1}. ${label}</label><br>
+        <select id="f${i}">
+          <option value="never">Never</option>
+          <option value="less1m">&lt;1回/月</option>
+          <option value="1-3m">1–3回/月</option>
+          <option value="1-3w">1–3回/週</option>
+          <option value="4-6w">4–6回/週</option>
+          <option value="daily">毎日</option>
+        </select>
+      `;
+      freqContainer.appendChild(div);
+    });
+
+    // 有無セレクトを生成
+    const binContainer = document.getElementById("binaryItems");
+    binLabels.forEach((label, i) => {
+      const div = document.createElement("div");
+      div.className = "item";
+      div.innerHTML = `
+        <label>${i+9}. ${label}</label><br>
+        <select id="b${i}">
+          <option value="0">No</option>
+          <option value="1">Yes</option>
+        </select>
+      `;
+      binContainer.appendChild(div);
+    });
+
+    function calculate() {
+      let total = 0;
+      // 頻度項目を合計
+      for (let i = 0; i < freqLabels.length; i++) {
+        const sel = document.getElementById(`f${i}`).value;
+        total += freqValues[sel];
+      }
+      // 有無項目を合計
+      for (let i = 0; i < binLabels.length; i++) {
+        total += parseInt(document.getElementById(`b${i}`).value, 10);
+      }
+      // カテゴリーと事後確率
+      let category, postProb;
+      if (total > 28) {
+        category = "PNSQ⁺ (可能性高)";
+        postProb = "約79.6%";  // :contentReference[oaicite:5]{index=5}
+      } else if (total >= 19) {
+        category = "PNSQ⁰ (要注意)";
+        postProb = "約18.4%";  // :contentReference[oaicite:6]{index=6}
+      } else {
+        category = "PNSQ⁻ (可能性低)";
+        postProb = "約2.0%";   // :contentReference[oaicite:7]{index=7}
+      }
+      document.getElementById("result").innerHTML =
+        `合計スコア: <strong>${total}</strong><br>` +
+        `カテゴリー: <strong>${category}</strong><br>` +
+        `ナルコレプシー陽性の事後確率: <strong>${postProb}</strong>`;
+    }
+  </script>
+</body>
+</html>
