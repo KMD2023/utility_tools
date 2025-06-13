@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>感度・特異度のカットオフインタラクティブ可視化</title>
+  <!-- Plotly.js の CDN 読み込み -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      max-width: 800px;
+    }
+    #controls {
+      margin-top: 20px;
+    }
+    #stats {
+      margin-top: 10px;
+      font-size: 1.1em;
+    }
+    .highlight {
+      font-weight: bold;
+      color: #007ACC;
+    }
+  </style>
+</head>
+<body>
+  <h2>連続値検査における感度・特異度カットオフのインタラクティブ可視化</h2>
+  <div id="plot" style="width:100%;height:500px;"></div>
+
+  <div id="controls">
+    <label for="cutoffSlider">カットオフ値: <span id="cutoffValue"></span></label><br>
+    <input type="range" id="cutoffSlider" min="-5" max="10" step="0.1" value="1">
+  </div>
+
+  <div id="stats">
+    <div>感度 (Sensitivity): <span id="sensitivityValue"></span></div>
+    <div>特異度 (Specificity): <span id="specificityValue"></span></div>
+    <div id="interpretation"></div>
+  </div>
+
+  <script>
+    // --- 1. 正規分布のパラメータ設定 ---
+    // 疾患なし群 (陰性群)
+    const meanNeg = 0;    // 平均
+    const sdNeg = 1;      // 標準偏差
+    // 疾患あり群 (陽性群)
+    const meanPos = 2;    // 平均
+    const sdPos = 1;      // 標準偏差
+
+    // x軸の範囲設定(平均値 ± 4σ 程度)
+    const xMin = Math.min(meanNeg - 4*sdNeg, meanPos - 4*sdPos);
+    const xMax = Math.max(meanNeg + 4*sdNeg, meanPos + 4*sdPos);
+    const xStep = 0.01;
+
+    // x配列を作成
+    const xValues = [];
+    for (let x = xMin; x <= xMax; x += xStep) {
+      xValues.push(x);
+    }
+
+    // --- 2. PDF・CDF 計算関数 ---
+    // 誤差関数 erf の近似実装
+    function erf(x) {
+      // Abramowitz and Stegun formula 7.1.26 の近似
+      const sign = (x >= 0) ? 1 : -1;
+      x = Math.abs(x);
+      const a1 =  0.254829592;
+      const a2 = -0.284496736;
+      const a3 =  1.421413741;
+      const a4 = -1.453152027;
+      const a5 =  1.061405429;
+      const p  =  0.3275911;
+      const t = 1.0 / (1.0 + p * x);
+      const y = 1.0 - ((((a5*t + a4)*t + a3)*t + a2)*t + a1) * t * Math.exp(-x * x);
+      return sign * y;
+    }
+
+    // 標準正規分布のCDF
+    function normalCdf(x, mean, sd) {
+      return 0.5 * (1 + erf((x - mean) / (sd * Math.sqrt(2))));
+    }
+
+    // 正規分布のPDF
+    function normalPdf(x, mean, sd) {
+      return (1 / (sd * Math.sqrt(2*Math.PI))) * Math.exp(-0.5 * Math.pow((x - mean)/sd, 2));
+    }
+
+    // PDFデータを計算
+    const pdfNeg = xValues.map(x => normalPdf(x, meanNeg, sdNeg));
+    const pdfPos = xValues.map(x => normalPdf(x, meanPos, sdPos));
+
+    // y軸上限を少し余裕持って取得
+    const maxPdf = Math.max(...pdfNeg, ...pdfPos) * 1.1;
+
+    // --- 3. Plotly で初期プロット ---
+    const traceNeg = {
+      x: xValues,
+      y: pdfNeg,
+      mode: 'lines',
+      name: '疾患なし群 (陰性群)',
+      line: { color: 'blue' },
+      fill: 'tozeroy',
+      opacity: 0.3
+    };
+    const tracePos = {
+      x: xValues,
+      y: pdfPos,
+      mode: 'lines',
+      name: '疾患あり群 (陽性群)',
+      line: { color: 'red' },
+      fill: 'tozeroy',
+      opacity: 0.3
+    };
+
+    // 初期カットオフ値(スライダー初期値)
+    let cutoff = parseFloat(document.getElementById('cutoffSlider').value);
+
+    // カットオフ縦線を shape で用意
+    function makeCutoffShape(xCut) {
+      return {
+        type: 'line',
+        x0: xCut,
+        y0: 0,
+        x1: xCut,
+        y1: maxPdf,
+        line: {
+          color: 'green',
+          width: 2,
+          dash: 'dashdot'
+        }
+      };
+    }
+
+    const layout = {
+      title: '連続値検査の分布とカットオフ',
+      xaxis: { title: '検査値' },
+      yaxis: { title: '確率密度', range: [0, maxPdf] },
+      shapes: [ makeCutoffShape(cutoff) ],
+      annotations: []  // 必要なら縦線ラベル等
+    };
+
+    Plotly.newPlot('plot', [traceNeg, tracePos], layout, {responsive: true});
+
+    // --- 4. 感度・特異度の計算と表示更新 ---
+    function updateStatsAndPlot(xCut) {
+      // 感度: 疾患あり群において、検査値 >= カットオフ(または設定に応じて <=)と判定する場合の真陽性率
+      // ここでは「検査値 >= カットオフを陽性とする」前提とする
+      const sens = 1 - normalCdf(xCut, meanPos, sdPos);
+      // 特異度: 疾患なし群において、検査値 < カットオフと判定する場合の真陰性率
+      const spec = normalCdf(xCut, meanNeg, sdNeg);
+
+      // 表示用フォーマット
+      const sensPct = (sens * 100).toFixed(1) + '%';
+      const specPct = (spec * 100).toFixed(1) + '%';
+
+      document.getElementById('sensitivityValue').textContent = sensPct;
+      document.getElementById('specificityValue').textContent = specPct;
+
+      // 解釈メッセージ
+      const interpElem = document.getElementById('interpretation');
+      // 感度/特異度のバランスによって操作のポイントを示す
+      let msg = '';
+      if (sens > spec) {
+        msg = '<span class="highlight">感度優先領域:</span> 陰性を見逃しにくい設定です。除外診断に有効。';
+      } else if (spec > sens) {
+        msg = '<span class="highlight">特異度優先領域:</span> 陽性を確定しやすい設定です。確定診断に有効。';
+      } else {
+        msg = '感度と特異度がほぼ同等の設定です。';
+      }
+      interpElem.innerHTML = msg;
+
+      // Plotly に縦線の位置更新を指示
+      Plotly.relayout('plot', {
+        'shapes[0].x0': xCut,
+        'shapes[0].x1': xCut
+      });
+    }
+
+    // 初期表示の数値
+    document.getElementById('cutoffValue').textContent = cutoff;
+    updateStatsAndPlot(cutoff);
+
+    // --- 5. スライダー操作時のイベント処理 ---
+    const slider = document.getElementById('cutoffSlider');
+    slider.addEventListener('input', function() {
+      cutoff = parseFloat(this.value);
+      document.getElementById('cutoffValue').textContent = cutoff.toFixed(1);
+      updateStatsAndPlot(cutoff);
+    });
+
+  </script>
+</body>
+</html>
