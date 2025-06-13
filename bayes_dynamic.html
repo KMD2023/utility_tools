@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Monte Carlo ベイズ逐次更新ツール（動的検査追加対応版）</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+        h2 { color: #333; }
+        fieldset { margin-bottom: 20px; padding: 10px; position: relative; }
+        legend { font-weight: bold; }
+        label { display: block; margin-top: 8px; }
+        input[type="number"] { width: 100px; }
+        select { width: 120px; }
+        .result { margin-top: 20px; padding: 10px; border: 1px solid #666; background: #f9f9f9; }
+        #histogramContainer { width: 600px; height: 300px; margin-top: 20px; }
+        .note { font-size: 0.9em; color: #555; }
+        .remove-test-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .remove-test-btn:hover {
+            background: #c0392b;
+        }
+        #addTestBtn {
+            margin-bottom: 20px;
+            padding: 6px 12px;
+            font-size: 1em;
+        }
+    </style>
+    <!-- jStat for Beta sampling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstat/1.9.4/jstat.min.js"></script>
+    <!-- Chart.js for histogram -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h2>Monte Carlo ベイズ逐次更新ツール（動的検査追加対応版）</h2>
+    <p>事前確率・感度・特異度の点推定と95%区間を入力し、複数検査（必要に応じて追加/削除可能）の逐次更新時の事後確率分布をMonte Carloで可視化します。条件付き独立仮定です。</p>
+
+    <form id="mcForm">
+        <fieldset>
+            <legend>事前確率 (Prior)</legend>
+            <label>
+                事前確率 P(D=1) の点推定:
+                <input type="number" id="priorPoint" value="0.1" step="0.01" min="0" max="1">
+            </label>
+            <label>
+                事前確率 95%CI 下限 (p_low):
+                <input type="number" id="priorLow" placeholder="例: 0.05" step="0.001" min="0" max="1">
+            </label>
+            <label>
+                事前確率 95%CI 上限 (p_high):
+                <input type="number" id="priorHigh" placeholder="例: 0.15" step="0.001" min="0" max="1">
+            </label>
+            <small class="note">※ CIを入力しない場合は点推定をもとに擬似N=100で幅狭Beta分布を仮定します。</small>
+        </fieldset>
+
+        <button type="button" id="addTestBtn">検査を追加</button>
+
+        <div id="testsContainer">
+            <!-- 初期で検査1, 検査2を自動追加 -->
+        </div>
+
+        <button type="button" onclick="runMonteCarlo()">計算 (Run Monte Carlo)</button>
+    </form>
+
+    <div id="result" class="result" style="display:none;">
+        <h3>事後確率分布結果</h3>
+        <p id="summaryText"></p>
+        <div id="histogramContainer">
+            <canvas id="histogramChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+    // ===============================
+    // CIからBeta(α,β)パラメータを近似的に推定する関数
+    function ciToBetaParams(p_low, p_high) {
+        const mean = (p_low + p_high) / 2;
+        const halfWidth = (p_high - p_low) / 2;
+        const sigma = halfWidth / 2; // 95%CIで±2σと仮定
+        const var_ = sigma * sigma;
+        const common = mean*(1-mean)/var_ - 1;
+        if (!isFinite(common) || common <= 0) {
+            // CI幅不適切ならJeffreys事前(弱情報事前)
+            return {alpha: 0.5, beta: 0.5};
+        }
+        const alpha = mean * common;
+        const beta  = (1-mean) * common;
+        return {alpha, beta};
+    }
+
+    // Monte CarloでBeta分布からサンプリング
+    function sampleBeta(alpha, beta) {
+        return jStat.beta.sample(alpha, beta);
+    }
+
+    // 検査フィールドセットを生成する関数
+    let testCount = 0;
+    function createTestFieldset() {
+        testCount++;
+        const idx = testCount; // 1-based index
+        const fieldset = document.createElement('fieldset');
+        fieldset.className = 'test-fieldset';
+        fieldset.dataset.testIndex = idx;
+
+        // Legend with test number
+        const legend = document.createElement('legend');
+        legend.textContent = `検査 ${idx}`;
+        fieldset.appendChild(legend);
+
+        // Remove button (全ての検査を消せないように、最低2は維持したい場合は削除制御可)
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.textContent = '削除';
+        removeBtn.className = 'remove-test-btn';
+        removeBtn.onclick = () => {
+            // 最低1つは残したい場合、チェック可能。ここでは自由に削除可能とするが、
+            // 必要であれば testsContainer.children.length <= 1 の制御を加える。
+            fieldset.remove();
+            updateTestLegends();
+        };
+        fieldset.appendChild(removeBtn);
+
+        // Sensitivity point and CI
+        const sensPointLabel = document.createElement('label');
+        sensPointLabel.innerHTML = `感度 P(T${idx}+ | D=1) の点推定: <input type="number" class="sensPoint" value="0.8" step="0.01" min="0" max="1">`;
+        fieldset.appendChild(sensPointLabel);
+        const sensLowLabel = document.createElement('label');
+        sensLowLabel.innerHTML = `感度 95%CI 下限: <input type="number" class="sensLow" placeholder="例: 0.72" step="0.001" min="0" max="1">`;
+        fieldset.appendChild(sensLowLabel);
+        const sensHighLabel = document.createElement('label');
+        sensHighLabel.innerHTML = `感度 95%CI 上限: <input type="number" class="sensHigh" placeholder="例: 0.88" step="0.001" min="0" max="1">`;
+        fieldset.appendChild(sensHighLabel);
+
+        // Specificity point and CI
+        const specPointLabel = document.createElement('label');
+        specPointLabel.innerHTML = `特異度 P(T${idx}- | D=0) の点推定: <input type="number" class="specPoint" value="0.9" step="0.01" min="0" max="1">`;
+        fieldset.appendChild(specPointLabel);
+        const specLowLabel = document.createElement('label');
+        specLowLabel.innerHTML = `特異度 95%CI 下限: <input type="number" class="specLow" placeholder="例: 0.85" step="0.001" min="0" max="1">`;
+        fieldset.appendChild(specLowLabel);
+        const specHighLabel = document.createElement('label');
+        specHighLabel.innerHTML = `特異度 95%CI 上限: <input type="number" class="specHigh" placeholder="例: 0.95" step="0.001" min="0" max="1">`;
+        fieldset.appendChild(specHighLabel);
+
+        // Result select
+        const resLabel = document.createElement('label');
+        const selectHTML = `
+            検査${idx}結果:
+            <select class="resSelect">
+                <option value="pos">陽性 (Positive)</option>
+                <option value="neg">陰性 (Negative)</option>
+            </select>`;
+        resLabel.innerHTML = selectHTML;
+        fieldset.appendChild(resLabel);
+
+        return fieldset;
+    }
+
+    // 検査フィールドのLegend番号を再更新（削除後などに実行）
+    function updateTestLegends() {
+        const container = document.getElementById('testsContainer');
+        const fieldsets = container.querySelectorAll('.test-fieldset');
+        fieldsets.forEach((fs, index) => {
+            const legend = fs.querySelector('legend');
+            legend.textContent = `検査 ${index+1}`;
+        });
+    }
+
+    // 初期2つの検査フィールドを追加
+    function initTests() {
+        const container = document.getElementById('testsContainer');
+        // clear if any
+        container.innerHTML = '';
+        testCount = 0;
+        // 初期2つ
+        const fs1 = createTestFieldset();
+        container.appendChild(fs1);
+        const fs2 = createTestFieldset();
+        container.appendChild(fs2);
+    }
+
+    document.getElementById('addTestBtn').addEventListener('click', () => {
+        const container = document.getElementById('testsContainer');
+        const newFs = createTestFieldset();
+        container.appendChild(newFs);
+        updateTestLegends();
+    });
+
+    // ページ読み込み時に初期化
+    window.onload = () => {
+        initTests();
+    };
+
+    // Monte Carlo逐次更新実行関数
+    function runMonteCarlo() {
+        // 事前確率入力取得
+        const priorPoint = parseFloat(document.getElementById('priorPoint').value);
+        const priorLow   = parseFloat(document.getElementById('priorLow').value);
+        const priorHigh  = parseFloat(document.getElementById('priorHigh').value);
+
+        // 事前Betaパラメータ
+        let priorParams;
+        if (!isNaN(priorLow) && !isNaN(priorHigh) && priorHigh > priorLow) {
+            priorParams = ciToBetaParams(priorLow, priorHigh);
+        } else {
+            // CI未入力時は幅狭めにBetaを仮定: 擬似N=100
+            const pt = isNaN(priorPoint) ? 0.1 : priorPoint;
+            const Np = 100;
+            priorParams = {alpha: pt * Np + 0.5, beta: (1-pt)*Np + 0.5};
+        }
+
+        // 検査フィールドをまとめて取得
+        const container = document.getElementById('testsContainer');
+        const fieldsets = Array.from(container.querySelectorAll('.test-fieldset'));
+        if (fieldsets.length === 0) {
+            alert('少なくとも1つの検査を入力してください。');
+            return;
+        }
+
+        // 各検査ごとにパラメータオブジェクト配列を作成
+        const tests = fieldsets.map((fs, idx) => {
+            // 各input/selectを取得 by class
+            const sensPoint = parseFloat(fs.querySelector('.sensPoint').value);
+            const sensLow   = parseFloat(fs.querySelector('.sensLow').value);
+            const sensHigh  = parseFloat(fs.querySelector('.sensHigh').value);
+            const specPoint = parseFloat(fs.querySelector('.specPoint').value);
+            const specLow   = parseFloat(fs.querySelector('.specLow').value);
+            const specHigh  = parseFloat(fs.querySelector('.specHigh').value);
+            const res       = fs.querySelector('.resSelect').value; // "pos" or "neg"
+
+            // Betaパラメータ化
+            let sensParams, specParams;
+            if (!isNaN(sensLow) && !isNaN(sensHigh) && sensHigh > sensLow) {
+                sensParams = ciToBetaParams(sensLow, sensHigh);
+            } else {
+                const pt = isNaN(sensPoint) ? 0.8 : sensPoint;
+                const Np = 100;
+                sensParams = {alpha: pt * Np + 0.5, beta: (1-pt)*Np + 0.5};
+            }
+            if (!isNaN(specLow) && !isNaN(specHigh) && specHigh > specLow) {
+                specParams = ciToBetaParams(specLow, specHigh);
+            } else {
+                const pt = isNaN(specPoint) ? 0.9 : specPoint;
+                const Np = 100;
+                specParams = {alpha: pt * Np + 0.5, beta: (1-pt)*Np + 0.5};
+            }
+            return {
+                sensParams,
+                specParams,
+                result: res
+            };
+        });
+
+        // Monte Carloサンプリング数
+        const Nmc = 5000; // 必要に応じて変更
+        const postSamples = [];
+
+        for (let i = 0; i < Nmc; i++) {
+            // 事前サンプル
+            const pPrior = sampleBeta(priorParams.alpha, priorParams.beta);
+            // 初期オッズ
+            let odds = pPrior / (1 - pPrior);
+
+            // 各検査を順次適用
+            for (const test of tests) {
+                const Se = sampleBeta(test.sensParams.alpha, test.sensParams.beta);
+                const Sp = sampleBeta(test.specParams.alpha, test.specParams.beta);
+                let lr;
+                if (test.result === 'pos') {
+                    lr = Se / (1 - Sp);
+                } else {
+                    lr = (1 - Se) / Sp;
+                }
+                odds = odds * lr;
+                // オッズが極端に大きく/小さくなる場合、数値的安定化が必要ならここでクリップ可能
+            }
+            // 最終事後確率
+            const pPost = odds / (1 + odds);
+            postSamples.push(pPost);
+        }
+
+        // 事後分布の要約統計: 中央値、95%Credible Interval
+        postSamples.sort((a,b) => a-b);
+        const median = postSamples[Math.floor(Nmc*0.5)];
+        const lowerIndex = Math.floor(Nmc*0.025);
+        const upperIndex = Math.floor(Nmc*0.975);
+        const ciLow = postSamples[lowerIndex];
+        const ciHigh = postSamples[upperIndex];
+
+        // 結果表示
+        document.getElementById('result').style.display = 'block';
+        const summaryText = document.getElementById('summaryText');
+        summaryText.innerHTML = `
+            <strong>事後確率の中央値:</strong> ${ (median*100).toFixed(1) }%<br>
+            <strong>95% Credible Interval:</strong> ${ (ciLow*100).toFixed(1) }% – ${ (ciHigh*100).toFixed(1) }%<br>
+            （Monte Carlo サンプル数: ${Nmc}）`;
+        plotHistogram(postSamples);
+    }
+
+    // Chart.js でヒストグラムを描画
+    let histogramChart = null;
+    function plotHistogram(samples) {
+        const binCount = 30;
+        const min = 0.0, max = 1.0;
+        const binSize = (max - min) / binCount;
+        const counts = new Array(binCount).fill(0);
+        samples.forEach(v => {
+            let idx = Math.floor((v - min) / binSize);
+            if (idx < 0) idx = 0;
+            if (idx >= binCount) idx = binCount - 1;
+            counts[idx]++;
+        });
+        const labels = [];
+        for (let i = 0; i < binCount; i++) {
+            const c = min + binSize*(i + 0.5);
+            labels.push((c*100).toFixed(1) + '%');
+        }
+        const data = {
+            labels: labels,
+            datasets: [{
+                label: '事後確率サンプルの頻度',
+                data: counts,
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderWidth: 1
+            }]
+        };
+        const ctx = document.getElementById('histogramChart').getContext('2d');
+        if (histogramChart) {
+            histogramChart.destroy();
+        }
+        histogramChart = new Chart(ctx, {
+            type: 'bar',
+            data: data,
+            options: {
+                scales: {
+                    x: {
+                        display: true,
+                        title: { display: true, text: '事後確率' },
+                        ticks: { maxRotation: 90, minRotation: 45 }
+                    },
+                    y: {
+                        display: true,
+                        title: { display: true, text: 'サンプル数' }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+    </script>
+</body>
+</html>
