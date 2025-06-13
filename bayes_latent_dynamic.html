@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Monte Carlo ベイズ逐次更新ツール（検査間依存対応版）</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+        h2 { color: #333; }
+        fieldset { margin-bottom: 20px; padding: 10px; position: relative; }
+        legend { font-weight: bold; }
+        label { display: block; margin-top: 8px; }
+        input[type="number"] { width: 100px; }
+        select { width: 140px; }
+        .result { margin-top: 20px; padding: 10px; border: 1px solid #666; background: #f9f9f9; }
+        #histogramContainer { width: 600px; height: 300px; margin-top: 20px; }
+        .note { font-size: 0.9em; color: #555; }
+        .remove-test-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .remove-test-btn:hover {
+            background: #c0392b;
+        }
+        #addTestBtn, #updateDepsBtn {
+            margin-bottom: 20px;
+            padding: 6px 12px;
+            font-size: 1em;
+            margin-right: 10px;
+        }
+        .dep-fieldset { margin-bottom: 10px; padding: 8px; border: 1px dashed #888; }
+    </style>
+    <!-- jStat for Beta sampling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstat/1.9.4/jstat.min.js"></script>
+    <!-- Chart.js for histogram -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h2>Monte Carlo ベイズ逐次更新ツール（検査間依存対応版）</h2>
+    <p>事前確率・感度・特異度の点推定と95%区間、検査間ペアのOR（点推定＋95%CI）を入力し、複数検査の逐次更新時の事後確率分布をMonte Carloで可視化します。条件付き独立モデルと、依存モデル（対数線形によるペアwise OR反映）の両方を比較できます。</p>
+
+    <form id="mcForm">
+        <fieldset>
+            <legend>事前確率 (Prior)</legend>
+            <label>
+                事前確率 P(D=1) の点推定:
+                <input type="number" id="priorPoint" value="0.1" step="0.01" min="0" max="1">
+            </label>
+            <label>
+                事前確率 95%CI 下限 (p_low):
+                <input type="number" id="priorLow" placeholder="例: 0.05" step="0.001" min="0" max="1">
+            </label>
+            <label>
+                事前確率 95%CI 上限 (p_high):
+                <input type="number" id="priorHigh" placeholder="例: 0.15" step="0.001" min="0" max="1">
+            </label>
+            <small class="note">※ CIを入力しない場合は点推定をもとに擬似N=100で幅狭Beta分布を仮定します。</small>
+        </fieldset>
+
+        <button type="button" id="addTestBtn">検査を追加</button>
+        <!-- testsContainer: 各検査の感度/特異度/結果入力欄 -->
+        <div id="testsContainer"></div>
+
+        <fieldset id="dependencyContainer">
+            <legend>検査間依存パラメータ (OR)</legend>
+            <p class="note">検査数に応じて自動更新されます。「更新」ボタンを押して最新の検査ペア欄を生成してください。</p>
+            <button type="button" id="updateDepsBtn">依存パラメータ欄を更新</button>
+            <div id="depsInner"></div>
+        </fieldset>
+
+        <fieldset>
+            <legend>Monte Carlo設定</legend>
+            <label>
+                サンプル数 (Nmc):
+                <input type="number" id="mcSamples" value="5000" step="500" min="1000">
+            </label>
+            <small class="note">サンプル数が多いほど精度向上しますが、処理時間も増加します。</small>
+        </fieldset>
+
+        <button type="button" onclick="runMonteCarloWithDependency()">計算 (Run Monte Carlo)</button>
+    </form>
+
+    <div id="result" class="result" style="display:none;">
+        <h3>事後確率分布結果</h3>
+        <p id="summaryTextIndependent"></p>
+        <p id="summaryTextDependent"></p>
+        <div id="histogramContainer">
+            <canvas id="histogramChartIndependent"></canvas>
+            <canvas id="histogramChartDependent" style="margin-top:20px;"></canvas>
+        </div>
+    </div>
+
+    <script>
+    // -------------------------------
+    // ヘルパー関数: CIからBeta(α,β)パラメータを近似的に推定
+    function ciToBetaParams(p_low, p_high) {
+        const mean = (p_low + p_high) / 2;
+        const halfWidth = (p_high - p_low) / 2;
+        const sigma = halfWidth / 2; // 95%CIで±2σと仮定
+        const var_ = sigma * sigma;
+        const common = mean*(1-mean)/var_ - 1;
+        if (!isFinite(common) || common <= 0) {
+            // CI幅不適切ならJeffreys事前(弱情報事前)
+            return {alpha: 0.5, beta: 0.5};
+        }
+        const alpha = mean * common;
+        const beta  = (1-mean) * common;
+        return {alpha, beta};
+    }
+    // Monte CarloでBeta分布からサンプリング
+    function sampleBeta(alpha, beta) {
+        return jStat.beta.sample(alpha, beta);
+    }
+
+    // -------------------------------
+    // 検査フィールドセットを生成する関数
+    let testCount = 0;
+    function createTestFieldset() {
+        testCount++;
+        const idx = testCount; // 1-based index
+        const fieldset = document.createElement('fieldset');
+        fieldset.className = 'test-fieldset';
+        fieldset.dataset.testIndex = idx;
+
+        const legend = document.createElement('legend');
+        legend.textContent = `検査 ${idx}`;
+        fieldset.appendChild(legend);
+
+        // 削除ボタン
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.textContent = '削除';
+        removeBtn.className = 'remove-test-btn';
+        removeBtn.onclick = () => {
+            fieldset.remove();
+            updateTestLegends();
+        };
+        fieldset.appendChild(removeBtn);
+
+        // Sensitivity point and CI
+        const sensPointLabel = document.createElement('label');
+        sensPointLabel.innerHTML = `感度 P(T${idx}+ | D=1) の点推定: <input type="number" class="sensPoint" value="0.8" step="0.01" min="0" max="1">`;
+        fieldset.appendChild(sensPointLabel);
+        const sensLowLabel = document.createElement('label');
+        sensLowLabel.innerHTML = `感度 95%CI 下限: <input type="number" class="sensLow" placeholder="例: 0.72" step="0.001" min="0" max="1">`;
+        fieldset.appendChild(sensLowLabel);
+        const sensHighLabel = document.createElement('label');
+        sensHighLabel.innerHTML = `感度 95%CI 上限: <input type="number" class="sensHigh" placeholder="例: 0.88" step="0.001" min="0" max="1">`;
+        fieldset.appendChild(sensHighLabel);
+
+        // Specificity point and CI
+        const specPointLabel = document.createElement('label');
+        specPointLabel.innerHTML = `特異度 P(T${idx}- | D=0) の点推定: <input type="number" class="specPoint" value="0.9" step="0.01" min="0" max="1">`;
+        fieldset.appendChild(specPointLabel);
+        const specLowLabel = document.createElement('label');
+        specLowLabel.innerHTML = `特異度 95%CI 下限: <input type="number" class="specLow" placeholder="例: 0.85" step="0.001" min="0" max="1">`;
+        fieldset.appendChild(specLowLabel);
+        const specHighLabel = document.createElement('label');
+        specHighLabel.innerHTML = `特異度 95%CI 上限: <input type="number" class="specHigh" placeholder="例: 0.95" step="0.001" min="0" max="1">`;
+        fieldset.appendChild(specHighLabel);
+
+        // Result select
+        const resLabel = document.createElement('label');
+        resLabel.innerHTML = `検査${idx}結果: 
+            <select class="resSelect">
+                <option value="pos">陽性 (Positive)</option>
+                <option value="neg">陰性 (Negative)</option>
+            </select>`;
+        fieldset.appendChild(resLabel);
+
+        return fieldset;
+    }
+    // 検査フィールドのLegend番号を再更新
+    function updateTestLegends() {
+        const container = document.getElementById('testsContainer');
+        const fieldsets = container.querySelectorAll('.test-fieldset');
+        testCount = fieldsets.length;
+        fieldsets.forEach((fs, index) => {
+            const legend = fs.querySelector('legend');
+            legend.textContent = `検査 ${index+1}`;
+        });
+    }
+    // 初期2つの検査フィールドを追加
+    function initTests() {
+        const container = document.getElementById('testsContainer');
+        container.innerHTML = '';
+        testCount = 0;
+        container.appendChild(createTestFieldset());
+        container.appendChild(createTestFieldset());
+    }
+    document.getElementById('addTestBtn').addEventListener('click', () => {
+        const container = document.getElementById('testsContainer');
+        container.appendChild(createTestFieldset());
+        updateTestLegends();
+    });
+    // ページ読み込み時に初期化
+    window.onload = () => {
+        initTests();
+        updateDependencies(); // 初期検査ペア用
+    };
+
+    // -------------------------------
+    // 検査間依存パラメータ入力欄を生成・更新する関数
+    function updateDependencies() {
+        const depsInner = document.getElementById('depsInner');
+        depsInner.innerHTML = '';
+        const container = document.getElementById('testsContainer');
+        const fieldsets = Array.from(container.querySelectorAll('.test-fieldset'));
+        const n = fieldsets.length;
+        if (n < 2) {
+            depsInner.innerHTML = '<p>検査が2つ未満のため、依存パラメータは不要です。</p>';
+            return;
+        }
+        // 全てのペア i<j について入力欄を生成
+        for (let i = 0; i < n; i++) {
+            for (let j = i+1; j < n; j++) {
+                const pairIdx = `pair_${i+1}_${j+1}`;
+                const fs = document.createElement('div');
+                fs.className = 'dep-fieldset';
+                // 見出し
+                const title = document.createElement('p');
+                title.innerHTML = `<strong>検査${i+1} と 検査${j+1} の依存度パラメータ (OR)</strong>`;
+                fs.appendChild(title);
+                // D=1 用 OR
+                const or1Label = document.createElement('label');
+                or1Label.innerHTML =
+                    `OR (検査${i+1}&${j+1}) under D=1 の点推定: ` +
+                    `<input type="number" class="or_d_point" id="or1_${pairIdx}" value="1" step="0.1" min="0.01">`;
+                fs.appendChild(or1Label);
+                const or1LowLabel = document.createElement('label');
+                or1LowLabel.innerHTML =
+                    `OR under D=1 の 95%CI 下限: ` +
+                    `<input type="number" class="or_d_low" id="or1low_${pairIdx}" placeholder="例: 0.8" step="0.01" min="0.01">`;
+                fs.appendChild(or1LowLabel);
+                const or1HighLabel = document.createElement('label');
+                or1HighLabel.innerHTML =
+                    `OR under D=1 の 95%CI 上限: ` +
+                    `<input type="number" class="or_d_high" id="or1high_${pairIdx}" placeholder="例: 1.5" step="0.01" min="0.01">`;
+                fs.appendChild(or1HighLabel);
+                // D=0 用 OR
+                const or0Label = document.createElement('label');
+                or0Label.innerHTML =
+                    `OR (検査${i+1}&${j+1}) under D=0 の点推定: ` +
+                    `<input type="number" class="or_0_point" id="or0_${pairIdx}" value="1" step="0.1" min="0.01">`;
+                fs.appendChild(or0Label);
+                const or0LowLabel = document.createElement('label');
+                or0LowLabel.innerHTML =
+                    `OR under D=0 の 95%CI 下限: ` +
+                    `<input type="number" class="or_0_low" id="or0low_${pairIdx}" placeholder="例: 0.8" step="0.01" min="0.01">`;
+                fs.appendChild(or0LowLabel);
+                const or0HighLabel = document.createElement('label');
+                or0HighLabel.innerHTML =
+                    `OR under D=0 の 95%CI 上限: ` +
+                    `<input type="number" class="or_0_high" id="or0high_${pairIdx}" placeholder="例: 1.5" step="0.01" min="0.01">`;
+                fs.appendChild(or0HighLabel);
+
+                depsInner.appendChild(fs);
+            }
+        }
+    }
+    document.getElementById('updateDepsBtn').addEventListener('click', updateDependencies);
+
+    // -------------------------------
+    // Monte Carlo＋依存モデルでの逐次更新実行関数
+    function runMonteCarloWithDependency() {
+        // 事前確率入力取得とBetaパラメータ化
+        const priorPoint = parseFloat(document.getElementById('priorPoint').value);
+        const priorLow   = parseFloat(document.getElementById('priorLow').value);
+        const priorHigh  = parseFloat(document.getElementById('priorHigh').value);
+        let priorParams;
+        if (!isNaN(priorLow) && !isNaN(priorHigh) && priorHigh > priorLow) {
+            priorParams = ciToBetaParams(priorLow, priorHigh);
+        } else {
+            const pt = isNaN(priorPoint) ? 0.1 : priorPoint;
+            const Np = 100;
+            priorParams = {alpha: pt * Np + 0.5, beta: (1-pt)*Np + 0.5};
+        }
+        // 検査設定取得
+        const container = document.getElementById('testsContainer');
+        const fieldsets = Array.from(container.querySelectorAll('.test-fieldset'));
+        const n = fieldsets.length;
+        if (n === 0) {
+            alert('少なくとも1つの検査を入力してください。');
+            return;
+        }
+        // 各検査の Betaパラメータと結果を収集
+        const tests = fieldsets.map((fs, idx) => {
+            const sensPoint = parseFloat(fs.querySelector('.sensPoint').value);
+            const sensLow   = parseFloat(fs.querySelector('.sensLow').value);
+            const sensHigh  = parseFloat(fs.querySelector('.sensHigh').value);
+            const specPoint = parseFloat(fs.querySelector('.specPoint').value);
+            const specLow   = parseFloat(fs.querySelector('.specLow').value);
+            const specHigh  = parseFloat(fs.querySelector('.specHigh').value);
+            const res       = fs.querySelector('.resSelect').value; // "pos" or "neg"
+            let sensParams, specParams;
+            if (!isNaN(sensLow) && !isNaN(sensHigh) && sensHigh > sensLow) {
+                sensParams = ciToBetaParams(sensLow, sensHigh);
+            } else {
+                const pt = isNaN(sensPoint) ? 0.8 : sensPoint;
+                const Np = 100;
+                sensParams = {alpha: pt * Np + 0.5, beta: (1-pt)*Np + 0.5};
+            }
+            if (!isNaN(specLow) && !isNaN(specHigh) && specHigh > specLow) {
+                specParams = ciToBetaParams(specLow, specHigh);
+            } else {
+                const pt = isNaN(specPoint) ? 0.9 : specPoint;
+                const Np = 100;
+                specParams = {alpha: pt * Np + 0.5, beta: (1-pt)*Np + 0.5};
+            }
+            return {
+                sensParams,
+                specParams,
+                result: res
+            };
+        });
+        // 依存パラメータ取得: OR point + CI for each pair
+        // 構造: orParams[i][j] = { alpha1Params: {meanLog, sdLog}, alpha0Params: {...} }
+        // ただし i<j のみ保持し、アクセス時に適宜参照
+        const orParams = {}; // keys: "i_j" 1-based indices joined by "_"
+        const depsInner = document.getElementById('depsInner');
+        // For each pair i<j
+        for (let i = 0; i < n; i++) {
+            for (let j = i+1; j < n; j++) {
+                const key = `${i+1}_${j+1}`;
+                // D=1
+                const or1Point = parseFloat(document.getElementById(`or1_pair_${i+1}_${j+1}`).value);
+                const or1Low   = parseFloat(document.getElementById(`or1low_pair_${i+1}_${j+1}`).value);
+                const or1High  = parseFloat(document.getElementById(`or1high_pair_${i+1}_${j+1}`).value);
+                // D=0
+                const or0Point = parseFloat(document.getElementById(`or0_pair_${i+1}_${j+1}`).value);
+                const or0Low   = parseFloat(document.getElementById(`or0low_pair_${i+1}_${j+1}`).value);
+                const or0High  = parseFloat(document.getElementById(`or0high_pair_${i+1}_${j+1}`).value);
+                // ログOR 分布パラメータ (正規近似): もしCI両方入力かつ valid なら log-normal の mean, sd を計算。さもなくば点推定のみの分布(小sd) または固定
+                function computeLogNormalParams(pt, low, high) {
+                    if (!isNaN(low) && !isNaN(high) && high > low && pt>0) {
+                        // 95%CIと仮定: low ≈ exp(mu - 1.96*sigma), high ≈ exp(mu + 1.96*sigma)
+                        const logLow = Math.log(low);
+                        const logHigh = Math.log(high);
+                        const mu = (logLow + logHigh) / 2;
+                        const sigma = (logHigh - logLow) / (2 * 1.96);
+                        return {mu, sigma};
+                    } else if (!isNaN(pt) && pt>0) {
+                        // CI未入力時: 小さめのsdを仮定 (例: sd=0.1)
+                        const mu = Math.log(pt);
+                        const sigma = 0.1;
+                        return {mu, sigma};
+                    } else {
+                        // デフォルト: independence に近い OR=1 固定
+                        return {mu: 0, sigma: 1e-6};
+                    }
+                }
+                const logParams1 = computeLogNormalParams(or1Point, or1Low, or1High);
+                const logParams0 = computeLogNormalParams(or0Point, or0Low, or0High);
+                orParams[key] = {
+                    d1: logParams1, // {mu, sigma}
+                    d0: logParams0
+                };
+            }
+        }
+
+        // Monte Carloサンプル数取得
+        const Nmc = parseInt(document.getElementById('mcSamples').value) || 5000;
+        const postSamplesInd = [];   // 条件付き独立モデル用
+        const postSamplesDep = [];   // 依存モデル用
+
+        // 検査数 n が大きいと 2^n の計算コストが増大するため注意
+        if (n > 6) {
+            const proceed = confirm(`検査数が ${n} で 2^n=${1<<n} 組み合わせを扱うため処理が重くなる可能性があります。続行しますか？`);
+            if (!proceed) return;
+        }
+
+        // すべてのパターン和 Z_d を計算するための全パターン列挙 (0/1)^n
+        // 事前に全パターンを列挙しておく
+        const patterns = [];
+        const totalPatterns = 1<<n;
+        for (let mask = 0; mask < totalPatterns; mask++) {
+            const arr = [];
+            for (let i = 0; i < n; i++) {
+                arr.push( ((mask >> i) & 1) ); // 0 or 1
+            }
+            patterns.push(arr);
+        }
+
+        // Monte Carlo ループ
+        for (let iter = 0; iter < Nmc; iter++) {
+            // 1) 事前確率サンプル
+            const pPrior = sampleBeta(priorParams.alpha, priorParams.beta);
+            const oddsPrior = pPrior / (1 - pPrior);
+
+            // 2) 各検査の Se, Sp サンプル
+            const Se = [], Sp = [];
+            for (let i = 0; i < n; i++) {
+                const {alpha, beta} = tests[i].sensParams;
+                Se[i] = sampleBeta(alpha, beta);
+                const {alpha: a2, beta: b2} = tests[i].specParams;
+                Sp[i] = sampleBeta(a2, b2);
+            }
+
+            // 3) 条件付き独立モデル: 単純LR掛け合わせ
+            let oddsInd = oddsPrior;
+            for (let i = 0; i < n; i++) {
+                let lr;
+                if (tests[i].result === 'pos') {
+                    lr = Se[i] / (1 - Sp[i]);
+                } else {
+                    lr = (1 - Se[i]) / Sp[i];
+                }
+                oddsInd *= lr;
+            }
+            const pPostInd = oddsInd / (1 + oddsInd);
+            postSamplesInd.push(pPostInd);
+
+            // 4) 依存モデル: joint probability via log-linear
+            // 4a) 各 alpha_{i,d} を計算
+            //    α_{i,1} = log(Se_i / (1 - Se_i)),  α_{i,0} = log((1 - Sp_i) / Sp_i)
+            const alpha1 = Se.map(v => Math.log(v / (1 - v)));
+            const alpha0 = Sp.map(v => Math.log((1 - v) / v));
+            // 4b) 各ペア beta_{ij,d} をサンプリング: log(OR) ~ Normal(mu, sigma)
+            //    orParams["i_j"].d1: {mu, sigma}, .d0 similarly
+            const beta1 = {}; // key "i_j"
+            const beta0 = {};
+            for (let i = 0; i < n; i++) {
+                for (let j = i+1; j < n; j++) {
+                    const key = `${i+1}_${j+1}`;
+                    const {mu: mu1, sigma: sd1} = orParams[key].d1;
+                    const logOr1 = jStat.normal.sample(mu1, sd1);
+                    beta1[key] = logOr1;
+                    const {mu: mu0, sigma: sd0} = orParams[key].d0;
+                    const logOr0 = jStat.normal.sample(mu0, sd0);
+                    beta0[key] = logOr0;
+                }
+            }
+            // 4c) joint normalization定数 Z1, Z0 を計算 (全パターン列挙 patterns)
+            let Z1 = 0, Z0 = 0;
+            // 4d) 観測パターンの numerator も同時に計算
+            // 観測 pattern:
+            const obs = tests.map(t => (t.result==='pos'?1:0));
+            let num1 = 0, num0 = 0;
+            // 列挙
+            for (const pat of patterns) {
+                // pat は長さ n の 0/1 配列
+                // U1 = sum_i alpha1[i] * pat[i] + sum_{i<j} beta1["i_j"] * pat[i]*pat[j]
+                let sumLog1 = 0, sumLog0 = 0;
+                for (let i = 0; i < n; i++) {
+                    if (pat[i]===1) {
+                        sumLog1 += alpha1[i];
+                        sumLog0 += alpha0[i];
+                    }
+                }
+                for (let i = 0; i < n; i++) {
+                    if (pat[i]!==1) continue;
+                    for (let j = i+1; j < n; j++) {
+                        if (pat[j]===1) {
+                            const key = `${i+1}_${j+1}`;
+                            sumLog1 += beta1[key];
+                            sumLog0 += beta0[key];
+                        }
+                    }
+                }
+                const weight1 = Math.exp(sumLog1);
+                const weight0 = Math.exp(sumLog0);
+                Z1 += weight1;
+                Z0 += weight0;
+                // 観測パターンなら numerator に設定
+                let match = true;
+                for (let k = 0; k < n; k++) {
+                    if (pat[k] !== obs[k]) { match = false; break; }
+                }
+                if (match) {
+                    num1 = weight1;
+                    num0 = weight0;
+                }
+            }
+            // 4e) P(obs|D=1) = num1 / Z1, P(obs|D=0) = num0 / Z0
+            const like1 = (Z1>0 ? num1 / Z1 : 0);
+            const like0 = (Z0>0 ? num0 / Z0 : 0);
+            // 4f) 事後オッズ = priorOdds * (like1/like0)
+            //    ただし like0 が 0 に近い場合は注意。ここでは極小クリップ等は入れていないが必要なら実装可能。
+            let pPostDep;
+            if (like0 <= 0) {
+                // 疾患なしでの確率がほぼ0 → 事後確率ほぼ1。ただし数値的には1にクリップ。
+                pPostDep = 1.0;
+            } else {
+                const oddsPost = oddsPrior * (like1 / like0);
+                pPostDep = oddsPost / (1 + oddsPost);
+            }
+            postSamplesDep.push(pPostDep);
+        }
+
+        // 事後分布の要約統計: 中央値、95%Credible Interval
+        function summarize(samples) {
+            samples.sort((a,b) => a-b);
+            const N = samples.length;
+            const median = samples[Math.floor(N*0.5)];
+            const ciLow = samples[Math.floor(N*0.025)] ;
+            const ciHigh= samples[Math.floor(N*0.975)];
+            return {median, ciLow, ciHigh};
+        }
+        const sumInd = summarize(postSamplesInd);
+        const sumDep = summarize(postSamplesDep);
+
+        // 結果表示
+        document.getElementById('result').style.display = 'block';
+        document.getElementById('summaryTextIndependent').innerHTML = 
+            `<strong>【独立モデル】事後確率の中央値:</strong> ${(sumInd.median*100).toFixed(1)}% ` +
+            ` <strong>95%CI:</strong> ${(sumInd.ciLow*100).toFixed(1)}%–${(sumInd.ciHigh*100).toFixed(1)}%`;
+        document.getElementById('summaryTextDependent').innerHTML = 
+            `<strong>【依存モデル】事後確率の中央値:</strong> ${(sumDep.median*100).toFixed(1)}% ` +
+            ` <strong>95%CI:</strong> ${(sumDep.ciLow*100).toFixed(1)}%–${(sumDep.ciHigh*100).toFixed(1)}%`;
+
+        // ヒストグラム描画
+        plotHistogram(postSamplesInd, 'histogramChartIndependent', '独立モデル事後確率');
+        plotHistogram(postSamplesDep, 'histogramChartDependent', '依存モデル事後確率');
+    }
+
+    // Chart.js でヒストグラムを描画 (canvasId, label)
+    let histogramChartInd = null, histogramChartDep = null;
+    function plotHistogram(samples, canvasId, label) {
+        const binCount = 30;
+        const min = 0.0, max = 1.0;
+        const binSize = (max - min) / binCount;
+        const counts = new Array(binCount).fill(0);
+        samples.forEach(v => {
+            let idx = Math.floor((v - min) / binSize);
+            if (idx < 0) idx = 0;
+            if (idx >= binCount) idx = binCount - 1;
+            counts[idx]++;
+        });
+        const labels = [];
+        for (let i = 0; i < binCount; i++) {
+            const c = min + binSize*(i + 0.5);
+            labels.push((c*100).toFixed(1) + '%');
+        }
+        const data = {
+            labels: labels,
+            datasets: [{
+                label: label,
+                data: counts,
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderWidth: 1
+            }]
+        };
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        // 既存チャートがあれば破棄
+        if (canvasId === 'histogramChartIndependent' && histogramChartInd) {
+            histogramChartInd.destroy();
+        }
+        if (canvasId === 'histogramChartDependent' && histogramChartDep) {
+            histogramChartDep.destroy();
+        }
+        const cfg = {
+            type: 'bar',
+            data: data,
+            options: {
+                scales: {
+                    x: {
+                        display: true,
+                        title: { display: true, text: '事後確率' },
+                        ticks: { maxRotation: 90, minRotation: 45 }
+                    },
+                    y: {
+                        display: true,
+                        title: { display: true, text: 'サンプル数' }
+                    }
+                },
+                plugins: { legend: { display: false } }
+            }
+        };
+        if (canvasId === 'histogramChartIndependent') {
+            histogramChartInd = new Chart(ctx, cfg);
+        } else {
+            histogramChartDep = new Chart(ctx, cfg);
+        }
+    }
+    </script>
+</body>
+</html>
