@@ -14,6 +14,7 @@
       --muted:#666;
       --card:#ffffff;
       --border:#e6e2db;
+      --thumbH: clamp(180px, 28vw, 260px);
     }
     html,body{height:100%}
     body{
@@ -66,12 +67,14 @@
     .alts li{margin:.25rem 0; padding:.2rem .35rem; border-radius:6px; transition:background .15s}
     .alts li.hit{color:var(--accent); font-weight:700; background:rgba(198,47,47,.08); outline:2px solid rgba(198,47,47,.15)}
     .alts li.spot{background:#fff7d6}
+
     .quiz-grid{
       display:grid; gap:.8rem;
       grid-template-columns:repeat(1, minmax(0,1fr));
     }
     @media (min-width:560px){ .quiz-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
     @media (min-width:880px){ .quiz-grid{ grid-template-columns:repeat(3, minmax(0,1fr)); } }
+
     .choice{
       padding:0; margin:0; border:1px solid var(--border); border-radius:12px; overflow:hidden;
       background:#fff; cursor:pointer; text-align:left;
@@ -79,13 +82,40 @@
     }
     .choice:hover{ transform:translateY(-1px); box-shadow:0 3px 10px rgba(0,0,0,.06) }
     .choice[disabled]{opacity:.75; cursor:not-allowed; transform:none; box-shadow:none}
-    .choice img{display:block; width:100%; aspect-ratio:16/10; object-fit:cover}
-    .choice figcaption{padding:.6rem .7rem; font-weight:600}
     .choice.correct{ border-color:rgba(26,127,55,.55); box-shadow:0 0 0 3px rgba(26,127,55,.12) inset }
     .choice.wrong{ border-color:rgba(185,28,28,.45); box-shadow:0 0 0 3px rgba(185,28,28,.12) inset }
+
+    /* 画像は縦長でも全体が入る（contain）。均一な高さのサムネイル領域を用意 */
+    .thumb{
+      position:relative; width:100%; height:var(--thumbH);
+      display:flex; align-items:center; justify-content:center;
+      background:#faf9f7;
+    }
+    .thumb img{
+      width:100%; height:100%;
+      object-fit:contain; /* ← 切れ防止 */
+      image-rendering:auto;
+      display:block;
+    }
+    /* 画像左上のアルファベットバッジ */
+    .badge{
+      position:absolute; top:.45rem; left:.45rem;
+      background:rgba(0,0,0,.7); color:#fff; font-weight:700;
+      padding:.2rem .45rem; border-radius:8px; font-size:.95rem;
+      line-height:1;
+    }
+
     .result{margin:.6rem 0 .2rem; font-weight:700}
     .result.ok{color:var(--ok)} .result.ng{color:var(--ng)}
-    .solo-image{width:100%; max-width:720px; display:block; margin:.4rem auto; border-radius:12px; border:1px solid var(--border)}
+
+    .solo-image-wrap{
+      border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#faf9f7;
+    }
+    .solo-image{
+      width:100%; max-height:min(60vh, 680px);
+      object-fit:contain; display:block; margin:0 auto;
+    }
+
     .footer-note{font-size:.9rem; color:var(--muted)}
     .kbd{font-family:ui-monospace, "SF Mono", Menlo, Consolas, monospace; background:#f6f6f6; border:1px solid #e0e0e0; padding:.05rem .35rem; border-radius:4px}
   </style>
@@ -138,33 +168,35 @@
         <p><strong>不適切なもの</strong>を選んでください。</p>
         <div class="quiz-grid">
           <button class="choice" data-choice="A">
-            <figure>
-              <img src="./image/赤門前夏目漱石.png" alt="赤門前夏目漱石" />
-              <figcaption>A. 赤門前夏目漱石</figcaption>
+            <figure class="thumb">
+              <img data-src="赤門前夏目漱石.png" alt="赤門前夏目漱石">
+              <span class="badge">A</span>
             </figure>
           </button>
           <button class="choice" data-choice="B">
-            <figure>
-              <img src="./image/ロンドン塔と夏目漱石.png" alt="ロンドン塔と夏目漱石" />
-              <figcaption>B. ロンドン塔と夏目漱石</figcaption>
+            <figure class="thumb">
+              <!-- NFD: ロンドン -->
+              <img data-src="ロンドン塔と夏目漱石.png" alt="ロンドン塔と夏目漱石">
+              <span class="badge">B</span>
             </figure>
           </button>
           <button class="choice" data-choice="C">
-            <figure>
-              <img src="./image/夏目漱石と正岡子規.png" alt="夏目漱石と正岡子規" />
-              <figcaption>C. 夏目漱石と正岡子規</figcaption>
+            <figure class="thumb">
+              <img data-src="夏目漱石と正岡子規.png" alt="夏目漱石と正岡子規">
+              <span class="badge">C</span>
             </figure>
           </button>
           <button class="choice" data-choice="D">
-            <figure>
-              <img src="./image/松山で英語を教える夏目漱石.png" alt="松山で英語を教える夏目漱石" />
-              <figcaption>D. 松山で英語を教える夏目漱石</figcaption>
+            <figure class="thumb">
+              <!-- NFD: で -->
+              <img data-src="松山で英語を教える夏目漱石.png" alt="松山で英語を教える夏目漱石">
+              <span class="badge">D</span>
             </figure>
           </button>
           <button class="choice" data-choice="E">
-            <figure>
-              <img src="./image/奇岩群と夏目夫妻.png" alt="奇岩群と夏目夫妻" />
-              <figcaption>E. 奇岩群と夏目夫妻</figcaption>
+            <figure class="thumb">
+              <img data-src="奇岩群と夏目夫妻.png" alt="奇岩群と夏目夫妻">
+              <span class="badge">E</span>
             </figure>
           </button>
         </div>
@@ -180,7 +212,9 @@
     <section class="page">
       <div class="card">
         <h2>ちなみに奇岩群と一緒に写真をとったのは…</h2>
-        <img class="solo-image" src="./image/奇岩群と鎌田夫妻.png" alt="奇岩群と鎌田夫妻" />
+        <div class="solo-image-wrap">
+          <img class="solo-image" data-src="奇岩群と鎌田夫妻.png" alt="奇岩群と鎌田夫妻">
+        </div>
         <div class="actions">
           <button class="btn primary" data-next>次へ</button>
         </div>
@@ -213,33 +247,34 @@
         <p><strong>不適切なもの</strong>を選んでください。</p>
         <div class="quiz-grid">
           <button class="choice" data-choice="A">
-            <figure>
-              <img src="./image/川端康成が架空の両親と赤門前にて.png" alt="川端康成が架空の両親と赤門前にて" />
-              <figcaption>A. 川端康成が架空の両親と赤門前にて</figcaption>
+            <figure class="thumb">
+              <img data-src="川端康成が架空の両親と赤門前にて.png" alt="川端康成が架空の両親と赤門前にて">
+              <span class="badge">A</span>
             </figure>
           </button>
           <button class="choice" data-choice="B">
-            <figure>
-              <img src="./image/伊豆の踊り子と川端康成.png" alt="伊豆の踊り子と川端康成" />
-              <figcaption>B. 伊豆の踊り子と川端康成</figcaption>
+            <figure class="thumb">
+              <img data-src="伊豆の踊り子と川端康成.png" alt="伊豆の踊り子と川端康成">
+              <span class="badge">B</span>
             </figure>
           </button>
           <button class="choice" data-choice="C">
-            <figure>
-              <img src="./image/婚約破棄に泣く川端康成.png" alt="婚約破棄に泣く川端康成" />
-              <figcaption>C. 婚約破棄に泣く川端康成</figcaption>
+            <figure class="thumb">
+              <img data-src="婚約破棄に泣く川端康成.png" alt="婚約破棄に泣く川端康成">
+              <span class="badge">C</span>
             </figure>
           </button>
           <button class="choice" data-choice="D">
-            <figure>
-              <img src="./image/禽獣を描いた頃の川端康成.png" alt="禽獣を描いた頃の川端康成" />
-              <figcaption>D. 禽獣を描いた頃の川端康成</figcaption>
+            <figure class="thumb">
+              <img data-src="禽獣を描いた頃の川端康成.png" alt="禽獣を描いた頃の川端康成">
+              <span class="badge">D</span>
             </figure>
           </button>
           <button class="choice" data-choice="E">
-            <figure>
-              <img src="./image/川端康成とノーベル賞.png" alt="川端康成とノーベル賞" />
-              <figcaption>E. 川端康成とノーベル賞</figcaption>
+            <figure class="thumb">
+              <!-- NFD: ノーベル -->
+              <img data-src="川端康成とノーベル賞.png" alt="川端康成とノーベル賞">
+              <span class="badge">E</span>
             </figure>
           </button>
         </div>
@@ -277,33 +312,33 @@
         <p><strong>不適切なもの</strong>を選んでください。</p>
         <div class="quiz-grid">
           <button class="choice" data-choice="A">
-            <figure>
-              <img src="./image/東大を除籍になる太宰治.png" alt="東大を除籍になる太宰治" />
-              <figcaption>A. 東大を除籍になる太宰治</figcaption>
+            <figure class="thumb">
+              <img data-src="東大を除籍になる太宰治.png" alt="東大を除籍になる太宰治">
+              <span class="badge">A</span>
             </figure>
           </button>
           <button class="choice" data-choice="B">
-            <figure>
-              <img src="./image/川端康成vs太宰治.png" alt="川端康成vs太宰治" />
-              <figcaption>B. 川端康成vs太宰治</figcaption>
+            <figure class="thumb">
+              <img data-src="川端康成vs太宰治.png" alt="川端康成vs太宰治">
+              <span class="badge">B</span>
             </figure>
           </button>
           <button class="choice" data-choice="C">
-            <figure>
-              <img src="./image/芥川賞と太宰治.png" alt="芥川賞と太宰治" />
-              <figcaption>C. 芥川賞と太宰治</figcaption>
+            <figure class="thumb">
+              <img data-src="芥川賞と太宰治.png" alt="芥川賞と太宰治">
+              <span class="badge">C</span>
             </figure>
           </button>
           <button class="choice" data-choice="D">
-            <figure>
-              <img src="./image/「女生徒」と太宰治.png" alt="「女生徒」と太宰治" />
-              <figcaption>D. 「女生徒」と太宰治</figcaption>
+            <figure class="thumb">
+              <img data-src="「女生徒」と太宰治.png" alt="「女生徒」と太宰治">
+              <span class="badge">D</span>
             </figure>
           </button>
           <button class="choice" data-choice="E">
-            <figure>
-              <img src="./image/すたこらさっちゃんと太宰治.png" alt="すたこらさっちゃんと太宰治" />
-              <figcaption>E. すたこらさっちゃんと太宰治</figcaption>
+            <figure class="thumb">
+              <img data-src="すたこらさっちゃんと太宰治.png" alt="すたこらさっちゃんと太宰治">
+              <span class="badge">E</span>
             </figure>
           </button>
         </div>
@@ -341,33 +376,33 @@
         <p><strong>不適切なもの</strong>を選んでください。</p>
         <div class="quiz-grid">
           <button class="choice" data-choice="A">
-            <figure>
-              <img src="./image/セロを引いている宮沢賢治.png" alt="セロを引いている宮沢賢治" />
-              <figcaption>A. セロを引いている宮沢賢治</figcaption>
+            <figure class="thumb">
+              <img data-src="セロを弾いている宮沢賢治.png" alt="セロを弾いている宮沢賢治">
+              <span class="badge">A</span>
             </figure>
           </button>
           <button class="choice" data-choice="B">
-            <figure>
-              <img src="./image/注文の多い宮沢賢治.png" alt="注文の多い宮沢賢治" />
-              <figcaption>B. 注文の多い宮沢賢治</figcaption>
+            <figure class="thumb">
+              <img data-src="注文の多い宮沢賢治.png" alt="注文の多い宮沢賢治">
+              <span class="badge">B</span>
             </figure>
           </button>
           <button class="choice" data-choice="C">
-            <figure>
-              <img src="./image/雨にも負けない宮沢賢治.png" alt="雨にも負けない宮沢賢治" />
-              <figcaption>C. 雨にも負けない宮沢賢治</figcaption>
+            <figure class="thumb">
+              <img data-src="雨にも負けない宮沢賢治.png" alt="雨にも負けない宮沢賢治">
+              <span class="badge">C</span>
             </figure>
           </button>
           <button class="choice" data-choice="D">
-            <figure>
-              <img src="./image/農業をする宮沢賢治.png" alt="農業をする宮沢賢治" />
-              <figcaption>D. 農業をする宮沢賢治</figcaption>
+            <figure class="thumb">
+              <img data-src="農業をする宮沢賢治.png" alt="農業をする宮沢賢治">
+              <span class="badge">D</span>
             </figure>
           </button>
           <button class="choice" data-choice="E">
-            <figure>
-              <img src="./image/銀河鉄道に乗る宮沢賢治.png" alt="銀河鉄道に乗る宮沢賢治" />
-              <figcaption>E. 銀河鉄道に乗る宮沢賢治</figcaption>
+            <figure class="thumb">
+              <img data-src="銀河鉄道に乗る宮沢賢治.png" alt="銀河鉄道に乗る宮沢賢治">
+              <span class="badge">E</span>
             </figure>
           </button>
         </div>
@@ -405,33 +440,33 @@
         <p><strong>不適切なもの</strong>を選んでください。</p>
         <div class="quiz-grid">
           <button class="choice" data-choice="A">
-            <figure>
-              <img src="./image/ニューヨークと村上春樹.png" alt="ニューヨークと村上春樹" />
-              <figcaption>A. ニューヨークと村上春樹</figcaption>
+            <figure class="thumb">
+              <img data-src="ニューヨークと村上春樹.png" alt="ニューヨークと村上春樹">
+              <span class="badge">A</span>
             </figure>
           </button>
           <button class="choice" data-choice="B">
-            <figure>
-              <img src="./image/チェコと村上春樹.png" alt="チェコと村上春樹" />
-              <figcaption>B. チェコと村上春樹</figcaption>
+            <figure class="thumb">
+              <img data-src="チェコと村上春樹.png" alt="チェコと村上春樹">
+              <span class="badge">B</span>
             </figure>
           </button>
           <button class="choice" data-choice="C">
-            <figure>
-              <img src="./image/スペインと村上春樹.png" alt="スペインと村上春樹" />
-              <figcaption>C. スペインと村上春樹</figcaption>
+            <figure class="thumb">
+              <img data-src="スペインと村上春樹.png" alt="スペインと村上春樹">
+              <span class="badge">C</span>
             </figure>
           </button>
           <button class="choice" data-choice="D">
-            <figure>
-              <img src="./image/エルサレムと村上春樹.png" alt="エルサレムと村上春樹" />
-              <figcaption>D. エルサレムと村上春樹</figcaption>
+            <figure class="thumb">
+              <img data-src="エルサレムと村上春樹.png" alt="エルサレムと村上春樹">
+              <span class="badge">D</span>
             </figure>
           </button>
           <button class="choice" data-choice="E">
-            <figure>
-              <img src="./image/ストックホルムと村上春樹.png" alt="ストックホルムと村上春樹" />
-              <figcaption>E. ストックホルムと村上春樹</figcaption>
+            <figure class="thumb">
+              <img data-src="ストックホルムと村上春樹.png" alt="ストックホルムと村上春樹">
+              <span class="badge">E</span>
             </figure>
           </button>
         </div>
@@ -451,13 +486,13 @@
         <div class="actions">
           <button class="btn" id="restart">最初からもう一度</button>
         </div>
-        <p class="footer-note">※画像が表示されない場合は、<code>./image</code> フォルダ内のファイル名（濁点の合成文字など）を実際のファイル名と合わせてください。</p>
+        <p class="footer-note">※GitHub Pages は Unicode 正規化（NFC/NFD）や拡張子の大文字小文字の差で表示に失敗することがあります。本ページは自動で複数パターンを試行します。</p>
       </div>
     </section>
   </main>
 
   <script>
-    // ページ制御
+    // ページ制御など（前回と同等）
     const pages = Array.from(document.querySelectorAll('.page'));
     const pageNowEl = document.getElementById('pageNow');
     const pageTotalEl = document.getElementById('pageTotal');
@@ -467,7 +502,7 @@
 
     let current = 0;
     let score = 0;
-    const answeredOnce = new Set(); // quiz-id を記録
+    const answeredOnce = new Set();
 
     function go(i){
       if(i<0 || i>=pages.length) return;
@@ -478,29 +513,23 @@
       if(current===pages.length-1){
         finalScoreEl.textContent = String(score);
       }
-      // ページ先頭へ
       window.scrollTo({top:0, behavior:'instant' in window ? 'instant':'auto'});
     }
 
-    // 次へボタン
     document.addEventListener('click', (e)=>{
       const btn = e.target.closest('[data-next]');
       if(btn){ go(current+1); }
     });
 
-    // ルーレット
     function runRoulette(listSelector){
       const list = document.querySelector(listSelector);
       if(!list) return;
       const items = Array.from(list.querySelectorAll('li'));
       if(items.length===0) return;
-
-      // リセット
       items.forEach(li=>{ li.classList.remove('hit','spot'); });
 
       const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       if(prefersReduced){
-        // アニメなしで即決定
         const idx = Math.floor(Math.random()*items.length);
         items[idx].classList.add('hit');
         return;
@@ -523,27 +552,19 @@
 
     document.addEventListener('click',(e)=>{
       const r = e.target.closest('[data-roulette]');
-      if(r){
-        runRoulette(r.getAttribute('data-roulette'));
-      }
+      if(r){ runRoulette(r.getAttribute('data-roulette')); }
     });
 
-    // クイズ判定
     function handleChoice(btn, quizPage){
       const choice = btn.getAttribute('data-choice');
       const answer = quizPage.getAttribute('data-answer');
       const resultEl = quizPage.querySelector('.result');
       const allChoices = Array.from(quizPage.querySelectorAll('.choice'));
       const quizId = quizPage.getAttribute('data-quiz-id') || crypto.randomUUID();
-
-      // 2度押し防止
       if(quizPage.dataset.locked === '1') return;
-
-      // ロック
       quizPage.dataset.locked = '1';
       allChoices.forEach(c=>c.disabled = true);
 
-      // 正誤表示
       if(choice === answer){
         btn.classList.add('correct');
         resultEl.textContent = '正解！';
@@ -557,7 +578,6 @@
         btn.classList.add('wrong');
         resultEl.textContent = '不正解！';
         resultEl.className = 'result ng';
-        // 正解もハイライト
         const correctBtn = allChoices.find(c=>c.getAttribute('data-choice')===answer);
         if(correctBtn){ correctBtn.classList.add('correct'); }
       }
@@ -571,15 +591,11 @@
       handleChoice(choiceBtn, quizPage);
     });
 
-    // 再スタート
     document.getElementById('restart')?.addEventListener('click', ()=>{
-      // スコア
       score = 0; answeredOnce.clear();
       scoreNowEl.textContent = '0';
       finalScoreEl.textContent = '0';
-      // ルーレット表示をリセット
       document.querySelectorAll('.alts li').forEach(li=>li.classList.remove('hit','spot'));
-      // クイズをリセット
       document.querySelectorAll('.quiz').forEach(q=>{
         q.dataset.locked = '0';
         q.querySelectorAll('.choice').forEach(c=>{
@@ -589,6 +605,42 @@
         const r = q.querySelector('.result'); if(r){ r.textContent=''; r.className='result'; }
       });
       go(0);
+    });
+
+    // ---- 画像スマートローダ（NFC/NFD・拡張子大文字小文字などを自動試行） ----
+    function attachSmartLoader(img){
+      const file = img.getAttribute('data-src');
+      if(!file) return;
+
+      // 候補を生成（順序：指定 → NFC → NFD → .PNG → .JPG など）
+      const stemMatch = file.match(/^(.*)\.([^.]+)$/);
+      const stem = stemMatch ? stemMatch[1] : file;
+      const ext  = stemMatch ? stemMatch[2] : 'png';
+
+      const candidates = Array.from(new Set([
+        file,
+        file.normalize('NFC'),
+        file.normalize('NFD'),
+        `${stem}.PNG`,
+        `${stem}.png`,
+        `${stem}.JPG`,
+        `${stem}.jpg`
+      ]));
+
+      let i = 0;
+      function tryNext(){
+        if(i >= candidates.length){
+          img.removeEventListener('error', tryNext);
+          return;
+        }
+        img.src = `./image/${candidates[i++]}`;
+      }
+      img.addEventListener('error', tryNext);
+      tryNext();
+    }
+
+    window.addEventListener('DOMContentLoaded', ()=>{
+      document.querySelectorAll('img[data-src]').forEach(attachSmartLoader);
     });
 
     // Safari用: scrollTo instant polyfill
