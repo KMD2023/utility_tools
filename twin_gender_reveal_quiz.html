@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>双子＆性別ジェンダーリビール・クイズ</title>
+<style>
+  :root{
+    --bg:#f8fafc;
+    --card:#ffffff;
+    --ink:#0f172a;
+    --muted:#475569;
+    --accent:#2563eb;
+    --accent-2:#10b981;
+    --border:#e2e8f0;
+  }
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";line-height:1.7;}
+  .wrap{max-width:960px;margin:32px auto;padding:0 16px 64px;}
+  header{margin-bottom:24px;text-align:center;}
+  header h1{font-size:clamp(24px,3.8vw,40px);margin:0 0 8px 0;letter-spacing:.02em;}
+  header p{margin:0;color:var(--muted)}
+  .meta{font-size:14px;color:var(--muted);margin-top:4px}
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin:16px 0;box-shadow:0 5px 10px rgba(15,23,42,.04);}
+  .quiz h2{margin:0 0 8px 0;font-size:clamp(18px,2.6vw,24px);}
+  .q-body{margin:6px 0 10px 0;}
+  .options{margin:8px 0 10px 20px;padding:0;}
+  .options li{margin:4px 0;}
+  .hint{font-size:14px;color:var(--muted);margin:4px 0 10px 0;}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{cursor:pointer;appearance:none;border:1px solid var(--border);background:#fff;border-radius:999px;padding:8px 14px;font-weight:600;transition:all .15s;}
+  .btn:hover{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+  .answer{display:none;border-top:1px dashed var(--border);margin-top:12px;padding-top:12px;}
+  .answer .correct{font-weight:700;color:var(--accent);}
+  .answer .exp{margin-top:6px;color:var(--muted)}
+  footer{margin-top:36px;text-align:center;color:var(--muted);font-size:14px;}
+  .badge{display:inline-block;font-size:12px;font-weight:700;color:#fff;background:var(--accent);padding:2px 8px;border-radius:999px;margin-right:6px;vertical-align:middle}
+  .tag{display:inline-block;font-size:12px;color:#0f172a;background:#e2e8f0;padding:2px 8px;border-radius:999px;margin-left:8px;vertical-align:middle}
+  .video{aspect-ratio:16/9;width:100%;max-width:100%;border:0;border-radius:12px;box-shadow:0 10px 18px rgba(15,23,42,.15)}
+  .note{font-size:13px;color:var(--muted)}
+  .two-col{columns:2;column-gap:16px}
+  @media (max-width:720px){.two-col{columns:1}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>双子＆性別ジェンダーリビール・クイズ</h1>
+    <p>科学の雑学でワクワク → 最後に性別発表の動画へ！</p>
+    <div class="meta">全20問／家族みんなで楽しめる三択クイズ</div>
+  </header>
+
+  <!-- Q1 -->
+  <section class="quiz" id="q1">
+    <h2><span class="badge">第1問</span> 双子の神秘</h2>
+    <div class="q-body">一卵性双胎（＝同じ受精卵から分かれた双子）が生まれる確率は、世界的にどのくらいでしょう？</div>
+    <ol class="options">
+      <li>A. 50組に1組</li>
+      <li>B. 100組に1組</li>
+      <li>C. 250組に1組</li>
+    </ol>
+    <div class="hint">🕒ヒント：一卵性は「人種や遺伝とは関係なく」ほぼ一定の確率。</div>
+    <div class="actions"><button class="btn" onclick="reveal('a1')">答えを見る</button></div>
+    <div class="answer" id="a1">
+      <div class="correct">正解：C（約250組に1組）</div>
+      <div class="exp">二卵性は遺伝や年齢・体外受精の影響を受けますが、一卵性は自然界の偶然。まさに“奇跡の2人”。</div>
+    </div>
+  </section>
+
+  <!-- Q2 -->
+  <section class="quiz" id="q2">
+    <h2><span class="badge">第2問</span> 二卵性双子の不思議</h2>
+    <div class="q-body">体外受精などの影響も含めて、二卵性双子が生まれる確率は世界的にどのくらい？</div>
+    <ol class="options">
+      <li>A. 100組に1組</li>
+      <li>B. 80組に1組</li>
+      <li>C. 40組に1組</li>
+    </ol>
+    <div class="hint">🕒ヒント：近年、この確率は“世界的に上昇傾向”。</div>
+    <div class="actions"><button class="btn" onclick="reveal('a2')">答えを見る</button></div>
+    <div class="answer" id="a2">
+      <div class="correct">正解：C（約40組に1組）</div>
+      <div class="exp">二卵性は「2つの卵子」が同時に排卵・受精してできるため、年齢（30代後半以降）や医療技術の進歩で増加。国差も大きく、ナイジェリアでは25組に1組、日本では100組に1組程度。<br><span class="note">豆知識：母系の遺伝（多排卵しやすい体質）で発生率が上がる傾向。</span></div>
+    </div>
+  </section>
+
+  <!-- Q3 -->
+  <section class="quiz" id="q3">
+    <h2><span class="badge">第3問</span> なぜナイジェリアでは双子が多い？</h2>
+    <div class="q-body">ナイジェリアでは25組に1組という高確率で双子（主に二卵性）。主な理由で最も正しいのは？</div>
+    <ol class="options">
+      <li>A. ヤムいも等の伝統食の効果</li>
+      <li>B. 不妊治療がとても盛ん</li>
+      <li>C. 遺伝的に多排卵しやすい体質が多い</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a3')">答えを見る</button></div>
+    <div class="answer" id="a3">
+      <div class="correct">正解：C（遺伝的に多排卵しやすい体質）</div>
+      <div class="exp">特にヨルバ族では「一度に2つの卵を排卵する体質」が家系的に多く、自然妊娠でも二卵性が多い。ヤムいも説は有名だが決定的証拠は乏しく、遺伝要因が本命。</div>
+    </div>
+  </section>
+
+  <!-- Q4 -->
+  <section class="quiz" id="q4">
+    <h2><span class="badge">第4問</span> なぜ日本では双子が少ない？</h2>
+    <div class="q-body">不妊治療や高齢出産が増えても、日本の双子は少なめ。その主因として最も正しいのは？</div>
+    <ol class="options">
+      <li>A. 双子を避ける文化がある</li>
+      <li>B. 自然二卵性率が低い体質に加え、体外受精は単一胚移植を徹底</li>
+      <li>C. 妊娠年齢が上がると双子が減る</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a4')">答えを見る</button></div>
+    <div class="answer" id="a4">
+      <div class="correct">正解：B（自然二卵性率が低く、単一胚移植の徹底）</div>
+      <div class="exp">東アジアはもともと自然二卵性率が低い。さらに日本の生殖医療では安全性重視で「1回1胚（単一胚移植）」を徹底し、体外受精での双胎率は33％→13％へ低下。</div>
+    </div>
+  </section>
+
+  <!-- Q5 -->
+  <section class="quiz" id="q5">
+    <h2><span class="badge">第5問</span> 一卵性は世界共通？</h2>
+    <div class="q-body">双子のうち、一卵性の発生率の国差は？</div>
+    <ol class="options">
+      <li>A. 国によって10倍以上差がある</li>
+      <li>B. ほとんど差がなく、どの国でも約3〜4組／1000出産</li>
+      <li>C. 近年、不妊治療で倍増している</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a5')">答えを見る</button></div>
+    <div class="answer" id="a5">
+      <div class="correct">正解：B（ほとんど差がなく一定）</div>
+      <div class="exp">一卵性は世界的にほぼ一定で神秘的に安定。一方、二卵性は遺伝・年齢・医療・地域で大きく変動。</div>
+    </div>
+  </section>
+
+  <!-- Q6 -->
+  <section class="quiz" id="q6">
+    <h2><span class="badge">第6問</span> お腹の中のチームワーク</h2>
+    <div class="q-body">双子が胎内で「相手を意識して動く」ようになるのはいつ頃？</div>
+    <ol class="options">
+      <li>A. 妊娠10週</li>
+      <li>B. 妊娠18週</li>
+      <li>C. 妊娠26週</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a6')">答えを見る</button></div>
+    <div class="answer" id="a6">
+      <div class="correct">正解：B（妊娠18週ごろ）</div>
+      <div class="exp">18週頃には相手の顔や体を触ろうとするしぐさが観察され、絆の芽生えが見られる。</div>
+    </div>
+  </section>
+
+  <!-- Q7 -->
+  <section class="quiz" id="q7">
+    <h2><span class="badge">第7問</span> 胎児は音を聞いている？</h2>
+    <div class="q-body">赤ちゃんが音や声を聞き分け始めるのはいつ頃から？</div>
+    <ol class="options">
+      <li>A. 妊娠12週</li>
+      <li>B. 妊娠20週</li>
+      <li>C. 妊娠30週</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a7')">答えを見る</button></div>
+    <div class="answer" id="a7">
+      <div class="correct">正解：B（妊娠20週ごろ）</div>
+      <div class="exp">この頃から保護者の声や音楽のリズムを感じ取れる。胎児教育＝安心できる「音・声」の環境づくり。</div>
+    </div>
+  </section>
+
+  <!-- Q8 -->
+  <section class="quiz" id="q8">
+    <h2><span class="badge">第8問</span> 利き手はいつ、どう決まる？</h2>
+    <div class="q-body">赤ちゃんの利き手（右利き・左利き）は主にどの時期に決まる？</div>
+    <ol class="options">
+      <li>A. 生後の生活習慣で決まる</li>
+      <li>B. 妊娠中にすでに決まっている</li>
+      <li>C. 幼児期の手遊びで決まる</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a8')">答えを見る</button></div>
+    <div class="answer" id="a8">
+      <div class="correct">正解：B（妊娠中にすでに決まっている）</div>
+      <div class="exp">妊娠8〜10週頃から手の使い方の偏りが見られることがあり、脳発達とともに利き手傾向が形成。</div>
+    </div>
+  </section>
+
+  <!-- Q9 -->
+  <section class="quiz" id="q9">
+    <h2><span class="badge">第9問</span> 利き手の割合</h2>
+    <div class="q-body">世界全体での右利き・左利きの割合は？</div>
+    <ol class="options">
+      <li>A. 右利き90%、左利き10%</li>
+      <li>B. 右利き70%、左利き30%</li>
+      <li>C. 右利き50%、左利き50%</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a9')">答えを見る</button></div>
+    <div class="answer" id="a9">
+      <div class="correct">正解：A（右利き90%、左利き10%）</div>
+      <div class="exp">左利きは世界で約1割前後と安定。脳の機能局在（左脳優位）などが背景にあると考えられる。</div>
+    </div>
+  </section>
+
+  <!-- Q10 -->
+  <section class="quiz" id="q10">
+    <h2><span class="badge">第10問</span> ミラーツインズ（鏡写しの双子）</h2>
+    <div class="q-body">ミラーツインズの特徴として正しいのは？</div>
+    <ol class="options">
+      <li>A. 性別が違う</li>
+      <li>B. 顔のパーツが反転している</li>
+      <li>C. 遺伝子が異なる</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a10')">答えを見る</button></div>
+    <div class="answer" id="a10">
+      <div class="correct">正解：B（顔のパーツが反転している）</div>
+      <div class="exp">受精卵の分裂が遅れる（約9〜12日後）ことで左右対称の“鏡写し”性質が生じやすい。例：利き手が逆、つむじやほくろ位置の反転など。<br><span class="note">豆知識：出現率は一卵性のうち約25%程度とも言われる。</span></div>
+    </div>
+  </section>
+
+  <!-- Q11 -->
+  <section class="quiz" id="q11">
+    <h2><span class="badge">第11問</span> 一卵性双胎で特に気をつける合併症は？</h2>
+    <div class="q-body">23週以降、MC/MD双胎などで最も注意が必要なのは？</div>
+    <ol class="options">
+      <li>A. 双胎間輸血症候群（TTTS）</li>
+      <li>B. 低体温症</li>
+      <li>C. 骨盤位（逆子）</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a11')">答えを見る</button></div>
+    <div class="answer" id="a11">
+      <div class="correct">正解：A（双胎間輸血症候群）</div>
+      <div class="exp">胎盤共有により血流バランスが崩れると供血児／受血児の不均衡が生じる。主に妊娠16〜26週に発症しやすく、現在は胎児鏡下レーザーで救命率が向上。</div>
+    </div>
+  </section>
+
+  <!-- Q12 -->
+  <section class="quiz" id="q12">
+    <h2><span class="badge">第12問</span> “TTTS”と似た合併症は？</h2>
+    <div class="q-body">23週以降のMC双胎で注意すべき合併症の組み合わせは？</div>
+    <ol class="options">
+      <li>A. TAPS（双胎間貧血多血症候群）</li>
+      <li>B. sFGR（選択的胎児発育遅延）</li>
+      <li>C. TRAP（逆行性灌流症候群）</li>
+      <li>D. 上のすべて</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a12')">答えを見る</button></div>
+    <div class="answer" id="a12">
+      <div class="correct">正解：D（上のすべて）</div>
+      <div class="exp"><strong>TAPS</strong>：羊水差が乏しく、貧血/多血差で気づく。<br><strong>sFGR</strong>：血流分配の偏りで片方が小さくなる。<br><strong>TRAP</strong>：まれな特殊型で逆行性灌流が起こる。定期的なエコーが鍵。</div>
+    </div>
+  </section>
+
+  <!-- Q13 -->
+  <section class="quiz" id="q13">
+    <h2><span class="badge">第13問</span> 23週を超えた今…？</h2>
+    <div class="q-body">ここまで到達した一卵性双胎において大切なのは？</div>
+    <ol class="options">
+      <li>A. もう安心してよい</li>
+      <li>B. 危険期は過ぎて安定期後半へ</li>
+      <li>C. 引き続き胎盤共有型の管理を続ける</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a13')">答えを見る</button></div>
+    <div class="answer" id="a13">
+      <div class="correct">正解：C（管理を続ける）</div>
+      <div class="exp">生存率は上がるが、36週頃まで羊水量・成長差・臍帯血流・子宮張り等の観察が重要。ここまで順調に育っていること自体が素晴らしい朗報。</div>
+    </div>
+  </section>
+
+  <!-- Q14 -->
+  <section class="quiz" id="q14">
+    <h2><span class="badge">第14問</span> 名前の画数に科学的根拠は？</h2>
+    <div class="q-body">名前の画数判断に科学的根拠があるとされるものは？</div>
+    <ol class="options">
+      <li>A. 統計的に幸福度や寿命と関連するデータがある</li>
+      <li>B. 画数が脳科学的に性格形成に影響すると証明されている</li>
+      <li>C. どれも根拠がない</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a14')">答えを見る</button></div>
+    <div class="answer" id="a14">
+      <div class="correct">正解：C（根拠なし）</div>
+      <div class="exp">画数判断は占いの一種で統計・医学的裏付けはない。むしろ意味や響きの良い名前を失うリスクがある。</div>
+    </div>
+  </section>
+
+  <!-- Q15 -->
+  <section class="quiz" id="q15">
+    <h2><span class="badge">第15問</span> 画数占いを重視しすぎるデメリット</h2>
+    <div class="q-body">起こりやすいデメリットは？</div>
+    <ol class="options">
+      <li>A. 名前の由来や意味を犠牲にする</li>
+      <li>B. 同じ読みでも不自然な漢字を使う</li>
+      <li>C. どちらも起こりうる</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a15')">答えを見る</button></div>
+    <div class="answer" id="a15">
+      <div class="correct">正解：C（どちらも起こりうる）</div>
+      <div class="exp">本来込めた思いや意味より占いが優先され、表記が不自然になるなどの弊害が生じうる。</div>
+    </div>
+  </section>
+
+  <!-- Q16 -->
+  <section class="quiz" id="q16">
+    <h2><span class="badge">第16問</span> 将来に良い影響を与えるものは？</h2>
+    <div class="q-body">研究で実際に良い影響が示されるのは？</div>
+    <ol class="options">
+      <li>A. 画数の吉凶</li>
+      <li>B. 名前に込められたポジティブな意味・響き</li>
+      <li>C. 姓名の画数バランス</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a16')">答えを見る</button></div>
+    <div class="answer" id="a16">
+      <div class="correct">正解：B（意味・響き）</div>
+      <div class="exp">子の自己肯定感やアイデンティティ形成に、親が込めた願い・意味が寄与するとされる。画数そのものの効果は示されていない。</div>
+    </div>
+  </section>
+
+  <!-- Q17 -->
+  <section class="quiz" id="q17">
+    <h2><span class="badge">第17問</span> 性別はいつ分かる？</h2>
+    <div class="q-body">超音波で性別が分かるのはだいたい何週ごろ？</div>
+    <ol class="options">
+      <li>A. 妊娠8週ごろ</li>
+      <li>B. 妊娠16〜20週ごろ</li>
+      <li>C. 妊娠28週ごろ</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a17')">答えを見る</button></div>
+    <div class="answer" id="a17">
+      <div class="correct">正解：B（16〜20週ごろ）</div>
+      <div class="exp">外性器の形がはっきりして推定が可能に。ただし姿勢や臍帯位置により見えないことも。</div>
+    </div>
+  </section>
+
+  <!-- Q18 -->
+  <section class="quiz" id="q18">
+    <h2><span class="badge">第18問</span> 性別を決めるのは誰？</h2>
+    <div class="q-body">性別を決めているのはどちらの遺伝子？</div>
+    <ol class="options">
+      <li>A. ママの卵子</li>
+      <li>B. パパの精子</li>
+      <li>C. 二人の運命の組み合わせ</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a18')">答えを見る</button></div>
+    <div class="answer" id="a18">
+      <div class="correct">正解：B（パパの精子）</div>
+      <div class="exp">卵子はX、精子はXまたはY。X受精でXX（女の子）、Y受精でXY（男の子）。どちらが来るかはランダム。</div>
+    </div>
+  </section>
+
+  <!-- Q19 -->
+  <section class="quiz" id="q19">
+    <h2><span class="badge">第19問</span> 双子の性別の組み合わせで一番多いのは？</h2>
+    <div class="q-body">一卵性・二卵性を合わせた全体で最も多い組み合わせは？</div>
+    <ol class="options">
+      <li>A. 男の子＋男の子</li>
+      <li>B. 女の子＋女の子</li>
+      <li>C. 男の子＋女の子</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a19')">答えを見る</button></div>
+    <div class="answer" id="a19">
+      <div class="correct">正解：C（男女ペア）</div>
+      <div class="exp">二卵性では性別の独立した確率が2回分働くため、結果として男女ペアがやや多くなる。</div>
+    </div>
+  </section>
+
+  <!-- Q20 -->
+  <section class="quiz" id="q20">
+    <h2><span class="badge">第20問</span> さて、我が家の双子は…？</h2>
+    <div class="q-body">ここまでの物語を経て、ついに答え合わせ！</div>
+    <ol class="options">
+      <li>💗💗　どちらも優しく包み込むような子？</li>
+      <li>💙💙　どちらもエネルギッシュで冒険好き？</li>
+      <li>💙💗　お互いを支え合う最強のペア？</li>
+    </ol>
+    <div class="actions"><button class="btn" onclick="reveal('a20')">答えを見る（動画）</button></div>
+    <div class="answer" id="a20">
+      <div class="correct">正解：こちらの動画で発表！</div>
+      <div class="exp">
+        <iframe class="video" src="https://www.youtube.com/embed/h34gAyZN9sw?si=7I27PBdc7bvxrual" title="Gender Reveal" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+        <div class="note" style="margin-top:8px">※ 音量にご注意ください。通信環境により再生に時間がかかる場合があります。</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    みんなで答えながら進めて、最後は動画でお祝いしましょう 🎉
+  </footer>
+</div>
+
+<script>
+function reveal(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.style.display = el.style.display === 'block' ? 'none' : 'block';
+  // スクロール補助：開いたらそこまで少しスクロール
+  if (el.style.display === 'block') {
+    el.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+}
+</script>
+</body>
+</html>
