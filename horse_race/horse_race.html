@@ -2,6 +2,9 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
+  <!-- ★ 追加：スマホ用のレイアウト拡大を効かせる -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
   <title>なんでもダービー開催ツール</title>
   <style>
     body {
@@ -298,6 +301,47 @@
     .horse { z-index: 10; }
     .fx { z-index: 50; }        /* これで .fx-* が確実に前面に来る */
 
+
+    /* ==== ここからスマホ用レイアウト調整 ==== */
+    @media (max-width: 600px) {
+      body {
+        padding: 12px;
+        font-size: 16px;           /* 全体のベース文字サイズアップ */
+      }
+
+      h1 {
+        font-size: 1.4rem;
+      }
+
+      .panel {
+        padding: 12px;
+      }
+
+      label,
+      .skin-settings-title,
+      .log,
+      .odds-table {
+        font-size: 0.95rem;        /* 0.8〜0.9rem → 少し大きめに */
+      }
+
+      textarea {
+        font-size: 0.9rem;
+      }
+
+      .horse-row {
+        height: 64px;              /* 行を少し高く */
+      }
+
+      .horse-label {
+        font-size: 0.95rem;
+      }
+
+      .horse {
+        width: 52px;
+        height: 52px;
+        font-size: 34px;           /* 絵文字もちょっと大きく */
+      }
+    }
 
   </style>
 </head>
@@ -956,16 +1000,24 @@
                   target.elem.style.visibility = "visible";
                 }
 
-                // サメは去るアニメーション
+                // サメは去るアニメーション（左側へ通り過ぎてフェードアウト）
                 const leaveStart = performance.now(), leaveDur = 520;
+                const fromX = tx;            // 噛みついた位置
+                const toX   = tx - 220;      // そこからさらに左へ抜けていく
+
                 function leave(t2){
                   const p2 = Math.min(1, (t2 - leaveStart)/leaveDur);
-                  shark.style.left = (tx + 200*p2) + "px";
-                  shark.style.opacity = (1-p2).toFixed(3);
-                  if (p2 < 1) requestAnimationFrame(leave);
-                  else shark.remove();
+                  const nx = fromX + (toX - fromX) * p2;  // 右→左 へ移動
+                  shark.style.left = nx + "px";
+                  shark.style.opacity = (1 - p2).toFixed(3);  // だんだん透明に
+                  if (p2 < 1) {
+                    requestAnimationFrame(leave);
+                  } else {
+                    shark.remove();
+                  }
                 }
                 requestAnimationFrame(leave);
+
               }, FX_CONFIG.sharkHideTicks * tickMs);
             }
           }
