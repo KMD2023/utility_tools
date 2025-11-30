@@ -1152,12 +1152,14 @@
         elem: null,
         targetFraction: 0,
         profile: [],
-        penalty: { active:false, startTick:0, slowTicks:0, recoverTicks:0, maxUnits:0 },
+        // ★ maxDrop を使う形にそろえる（maxUnits は不要）
+        penalty: { active:false, startTick:0, slowTicks:0, recoverTicks:0, maxDrop:0 },
         stunUntilTick: 0,
         hiddenUntilTick: 0,
         freezePos: 0,
-        progK: 0          // ★ 追加：各馬の「自分用の時間」（内部進捗）
+        progK: 0          // 各馬の「自分用の時間」（内部進捗）
       }));
+
 
       // 勝者1位固定、他はシャッフル
       const indices = horses.map((_,i) => i);
@@ -1284,42 +1286,64 @@
       scheduleFXEvents(totalTicks, tickMs);  
 
       let tick = 0;
+
+      // 🆕 延長戦コントロール
+      let inOvertime = false;
+      let overtimeTicks = 0;
+      const OVERTIME_MAX_TICKS = 480;   // 無限延長防止の上限（必要なら調整）
+      let loggedOvertime = false;
+
       raceTimer = setInterval(() => {
         const k = Math.min(tick, totalTicks);
-        
-        // ループの先頭で現在tickを公開
-        currentTick = tick;
+        currentTick = tick; // 現在tickを公開
 
+        // 位置更新 & 表示（★スタン・行方不明中は時間も止める版）
         horses.forEach(h => {
+          // 隠れている／スタン中かどうか
           const hidden  = h.hiddenUntilTick && currentTick < h.hiddenUntilTick;
-          const stunned = h.stunUntilTick   && currentTick < h.stunUntilTick;
+          const stunned = h.stunUntilTick  && currentTick < h.stunUntilTick;
+
+          // 見た目の「非表示」はここで制御
           if (h.elem) h.elem.style.visibility = hidden ? "hidden" : "visible";
 
-          // ★ スタン/隠し中は進まない。ペナルティ中は倍率 < 1 で進む
+          // --- 自分用時間 progK の更新 ---
+          // 隠れている・スタン中は時間を進めない（＝その場で止まる）
           if (!hidden && !stunned) {
-            const mul = penaltyProgressMultiplier(h, k);      // 0..1
-            h.progK = Math.min(h.profile.length - 1, h.progK + mul);
+            const mult = penaltyProgressMultiplier(h, currentTick); // 0〜1 の速度倍率
+            const step = Math.max(0, mult);                          // 念のため負を防ぐ
+            h.progK += step;
+            if (h.progK > totalTicks) h.progK = totalTicks;          // 走り過ぎ防止
           }
 
-          // 内部位置は progK による
-          h.pos = h.profile[Math.round(h.progK)];
+          // --- progK に対応する位置をプロファイルから補間で取得 ---
+          const idx0 = Math.floor(h.progK);
+          const idx1 = Math.min(totalTicks, idx0 + 1);
+          const tFrac = h.progK - idx0;
 
-          // 表示位置：時間遅延モデルなので距離オフセットは使わない
+          const p0 = h.profile[idx0];
+          const p1 = h.profile[idx1];
+          let posNow = p0 + (p1 - p0) * tFrac;
+
           const maxPos = goal * h.targetFraction;
-          let displayPos;
+          if (posNow > maxPos) posNow = maxPos;
+          if (posNow < 0)      posNow = 0;
+
+          // --- 表示位置の決定 ---
           if (hidden || stunned) {
-            displayPos = h.freezePos ?? h.pos;
+            // ドローン/サメに捕まっている間は freezePos に固定
+            h.pos = h.freezePos;
           } else {
-            displayPos = h.pos;
-            if (displayPos < 0) displayPos = 0;
-            if (displayPos > maxPos) displayPos = maxPos;
-            h.freezePos = displayPos;
+            // 通常時は計算通り進む & 次の停止のために freezePos を更新
+            h.pos = posNow;
+            h.freezePos = h.pos;
           }
 
-          const ratio = Math.max(0, Math.min(1, displayPos / goal));
+          const ratio = Math.max(0, Math.min(1, h.pos / goal));
           h.elem.style.left = (ratio * 92) + "%";
-        });        
+        });
 
+
+        // 区間実況（実効位置で先頭判定）
         if (tick === Math.floor(totalTicks*0.25) ||
             tick === Math.floor(totalTicks*0.5)  ||
             tick === Math.floor(totalTicks*0.75)) {
@@ -1329,14 +1353,91 @@
           log(`現在先頭は ${leader.name}！`);
         }
 
-        if (tick >= totalTicks) {
+        // --- フィニッシュ判定 ---
+        // 通常は totalTicks 到達で終了だが、
+        // 先頭の「実効位置」が“本来のゴール”に届いていなければ延長戦へ
+        if (!inOvertime && tick >= totalTicks) {
+          // 実効位置での先頭馬
+          const leaderNow = horses
+            .slice()
+            .sort((a,b) => getEffectiveDisplayPos(b, k, goal) - getEffectiveDisplayPos(a, k, goal))[0];
+
+          const leaderGoalPos = goal * leaderNow.targetFraction;
+          const leaderEff = getEffectiveDisplayPos(leaderNow, k, goal);
+
+          if (leaderEff + 0.01 < leaderGoalPos) { // ほんの誤差を許容
+            inOvertime = true;
+            if (!loggedOvertime) {
+              log("⏱ 延長戦突入：先頭がゴール演出に到達するまで継続します");
+              loggedOvertime = true;
+            }
+          }
+        }
+
+        // 延長戦中の終了条件：
+        // 1) 先頭の実効位置が本来のゴールに到達  2) 延長しすぎ（安全弁）
+        if (inOvertime) {
+          overtimeTicks += 1;
+
+          const k2 = Math.min(tick, totalTicks); // 実効位置は表示ロジックで計算
+          const leaderNow2 = horses
+            .slice()
+            .sort((a,b) => getEffectiveDisplayPos(b, k2, goal) - getEffectiveDisplayPos(a, k2, goal))[0];
+          const leaderGoalPos2 = goal * leaderNow2.targetFraction;
+          const leaderEff2 = getEffectiveDisplayPos(leaderNow2, k2, goal);
+
+          const leaderReached = (leaderEff2 + 0.01 >= leaderGoalPos2);
+          const overtimeTooLong = overtimeTicks >= OVERTIME_MAX_TICKS;
+
+          if (leaderReached || overtimeTooLong) {
+            // レース終了処理（現フレームの表示状態を採用）
+            clearInterval(raceTimer);
+            raceTimer = null;
+
+            const ranking = horses.slice().sort((a,b) => {
+              // ★ サメの確定最下位はユーザー要望で「戻す」(＝通常比較)
+              // 以前の sharked による強制最下位をやめ、実効位置で純粋比較
+              const pb = getEffectiveDisplayPos(b, Math.min(tick, totalTicks), goal);
+              const pa = getEffectiveDisplayPos(a, Math.min(tick, totalTicks), goal);
+              return pb - pa;
+            });
+
+            const winner = ranking[0];
+
+            log("");
+            log(`🏁 ゴールイン！`);
+            if (inOvertime && !overtimeTooLong) {
+              log("（延長戦で演出到達を確認）");
+            }
+            log(`1着: ${winner.name}`);
+            log("最終順位:");
+            ranking.forEach((h,i) => {
+              log(`${i+1}着: ${h.name}`);
+            });
+
+            winner.elem.style.boxShadow = "0 0 18px rgba(250,204,21,0.9)";
+            winner.elem.style.transform = "translateY(-50%) scale(1.1)";
+            const msg = document.createElement("div");
+            msg.className = "winner";
+            msg.textContent = `採用候補は「${winner.name}」！`;
+            logEl.appendChild(msg);
+            logEl.scrollTop = logEl.scrollHeight;
+
+            startBtn.disabled = false;
+            return; // ← setInterval終了
+          }
+        }
+
+        // 通常の「時間切れ」終了（延長条件に当たらなければ従来通り即終了）
+        if (!inOvertime && tick >= totalTicks) {
           clearInterval(raceTimer);
           raceTimer = null;
 
-          const ranking = horses
-            .slice()
-            .sort((a,b) => getEffectiveDisplayPos(b, totalTicks, goal) - getEffectiveDisplayPos(a, totalTicks, goal));
-          
+          const ranking = horses.slice().sort((a,b) => {
+            const pb = getEffectiveDisplayPos(b, totalTicks, goal);
+            const pa = getEffectiveDisplayPos(a, totalTicks, goal);
+            return pb - pa;
+          });
           const winner = ranking[0];
 
           log("");
@@ -1356,10 +1457,13 @@
           logEl.scrollTop = logEl.scrollHeight;
 
           startBtn.disabled = false;
+          return;
         }
 
         tick++;
       }, tickMs);
+
+      
     }
 
     startBtn.addEventListener("click", () => {
