@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>なんでもダービー開催ツール</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 1.5rem;
+    }
+    .panel {
+      background: #111827;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    label {
+      font-size: 0.9rem;
+      color: #9ca3af;
+    }
+    textarea {
+      width: 100%;
+      height: 110px;
+      border-radius: 8px;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #e5e7eb;
+      padding: 8px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      resize: vertical;
+    }
+    button {
+      background: #06b6d4;
+      border: none;
+      color: #0f172a;
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    .track-wrapper {
+      margin-top: 8px;
+      max-width: 900px;
+    }
+    .track {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      background: linear-gradient(90deg,#020617,#020617 96%,#4b5563 96%,#4b5563);
+      padding: 10px 16px 10px 10px;
+    }
+    .horse-row {
+      position: relative;
+      height: 60px;
+      margin: 8px 0;
+      background: rgba(15,23,42,0.9);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .horse-label {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.9rem;
+      z-index: 2;
+      white-space: nowrap;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    }
+    .horse {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 48px;
+      width: 48px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(255,255,255,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      color: #0f172a;
+      font-weight: 700;
+      overflow: hidden;
+    }
+    .goal-label {
+      position: absolute;
+      top: -18px;
+      right: 4%;
+      font-size: 0.7rem;
+      color: #9ca3af;
+    }
+    .log {
+      font-size: 0.8rem;
+      line-height: 1.4;
+      max-height: 220px;
+      overflow-y: auto;
+      background: #020617;
+      border-radius: 8px;
+      padding: 8px;
+      border: 1px solid #1f2937;
+      white-space: pre-wrap;
+    }
+    .winner {
+      font-weight: 700;
+      color: #facc15;
+      margin-top: 4px;
+    }
+    .odds-table {
+      font-size: 0.8rem;
+      margin-top: 4px;
+      color: #9ca3af;
+    }
+    .odds-table span {
+      display: inline-block;
+      margin-right: 12px;
+    }
+    .skin-settings-title {
+      font-size: 0.9rem;
+      margin-top: 10px;
+      margin-bottom: 4px;
+      color: #e5e7eb;
+    }
+    .skin-settings {
+      font-size: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 160px;
+      overflow-y: auto;
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: #020617;
+      border: 1px solid #1f2937;
+    }
+    .skin-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .skin-row span {
+      min-width: 5em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .skin-row select {
+      flex: 1;
+      border-radius: 6px;
+      border: 1px solid #374151;
+      background: #0b1120;
+      color: #e5e7eb;
+      font-size: 0.8rem;
+      padding: 2px 4px;
+    }
+
+    /* ==== カオス演出 用スタイル ==== */
+    .fx {
+      position: absolute;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .fx-bang {
+      font-weight: 900;
+      color: #f87171;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+      animation: fx-pop 420ms ease-out forwards;
+      transform-origin: center;
+    }
+    @keyframes fx-pop {
+      0%   { transform: translate(-50%,-50%) scale(0.3) rotate(-10deg); opacity: 0; }
+      60%  { transform: translate(-50%,-50%) scale(1.2) rotate(6deg);  opacity: 1; }
+      100% { transform: translate(-50%,-50%) scale(1.0) rotate(0deg);  opacity: 1; }
+    }
+
+    .fx-laser-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #ef4444; box-shadow: 0 0 10px #ef4444, 0 0 18px rgba(239,68,68,.5);
+      animation: fx-blink 800ms ease-in-out infinite;
+      transform: translate(-50%,-50%);
+    }
+
+    @keyframes fx-blink {
+      0%,100% { opacity: .3; }
+      50%     { opacity: 1; }
+    }
+
+    .fx-smoke {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: radial-gradient(#cbd5e1,#64748b);
+      filter: blur(0.4px);
+      animation: fx-smoke-rise 900ms ease-out forwards;
+      opacity: .9;
+    }
+    
+    @keyframes fx-smoke-rise {
+      0%   { transform: translate(-50%,-50%) scale(.6); opacity: .9; }
+      100% { transform: translate(-50%,-100%) scale(1.6); opacity: 0; }
+    }
+
+
+    
+    @keyframes fx-spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+
+
+    /* 力士コロコロ（画像版） */
+    .fx-sumo {
+      width: 38px; height: 38px;         /* JS側で上書きするので初期値でOK */
+      border-radius: 50%;
+      background: #ef4444;               /* フォールバック色 */
+      background-size: cover;
+      background-position: center;
+      border: 2px solid #7f1d1d;
+      transform: translate(-50%,-50%) rotate(0deg);
+      animation: fx-spin 1200ms linear infinite; /* 回転 */
+      box-shadow: 0 4px 10px rgba(0,0,0,.4);
+    }
+
+    /* 覆面レスラー（画像版） */
+    .fx-wrestler {
+      width: 44px; height: 44px;         /* JS側で上書き */
+      border-radius: 8px;
+      background: #eab308;               /* フォールバック色 */
+      background-size: cover;
+      background-position: center;
+      border: 2px solid #0b0f1a;
+      box-shadow: 0 6px 14px rgba(0,0,0,.5);
+      transform: translate(-50%,-50%);
+    }
+
+    /* ふざけた落とし物（バナナ） */
+    .fx-banana { width: 20px; height: 8px; border-radius: 8px;
+      background: linear-gradient(90deg,#fde68a,#f59e0b);
+      transform: translate(-50%,-50%) rotate(12deg);
+      box-shadow: 0 2px 6px rgba(0,0,0,.4);
+    }
+
+
+
+    /* 馬に一瞬かける“やられ”表現（見た目だけ。位置は変えない） */
+    .horse.fx-hit {
+      filter: grayscale(1) contrast(1.1) brightness(.9);
+      animation: fx-hit-wobble 520ms ease-out;
+    }
+
+    @keyframes fx-hit-wobble {
+      0%   { transform: translateY(-50%) scale(1)   rotate(0deg);    }
+      20%  { transform: translateY(-55%) scale(.92) rotate(-6deg);   }
+      40%  { transform: translateY(-48%) scale(1.04) rotate(5deg);   }
+      60%  { transform: translateY(-52%) scale(.98) rotate(-3deg);   }
+      100% { transform: translateY(-50%) scale(1)   rotate(0deg);    }
+    }
+
+    /* ぶつかった時に少しだけノックバックしてから戻る */
+    .horse.fx-bump {
+      transition: transform 260ms ease-out;
+    }
+
+    /* 行内のエフェクトを重ねやすくする */
+    .horse-row { position: relative; }
+
+    /* ==== 新イベント用ダミー画像（後で差し替え） ==== */
+    .fx-chimp, .fx-poop, .fx-drone, .fx-net, .fx-shark {
+      position: absolute;
+      pointer-events: none;
+      transform: translate(-50%,-50%);
+      background-size: cover;
+      background-position: center;
+      z-index: 6;
+    }
+    .fx-chimp   { width: 46px; height: 46px; border-radius: 50%; background: #a16207; box-shadow: 0 4px 12px rgba(0,0,0,.5); }
+    .fx-poop    { width: 20px; height: 20px; border-radius: 50%; background: #92400e; box-shadow: 0 2px 6px rgba(0,0,0,.45); }
+    .fx-drone   { width: 60px; height: 40px; border-radius: 8px; background: #94a3b8; box-shadow: 0 6px 16px rgba(0,0,0,.5); }
+    .fx-net     { width: 64px; height: 44px; border: 2px dashed rgba(203,213,225,.9); border-radius: 10px; background: rgba(2,6,23,.25); box-shadow: inset 0 0 10px rgba(148,163,184,.4); }
+    .fx-shark   { width: 120px; height: 56px; border-radius: 28px; background: linear-gradient(90deg,#0ea5e9,#0369a1); box-shadow: 0 10px 24px rgba(0,0,0,.55); }
+
+    /* 画像を入れるので背景の繰り返しは無効化 */
+    .fx-chimp, .fx-poop, .fx-drone, .fx-net, .fx-shark { background-repeat: no-repeat; }
+
+
+    /* --- 重要：重なり順の明確化（画像が見えない保険） --- */
+    .horse { z-index: 10; }
+    .fx { z-index: 50; }        /* これで .fx-* が確実に前面に来る */
+
+
+  </style>
+</head>
+<body>
+  <h1>なんでもダービー開催ツール</h1>
+
+  <div class="panel">
+    <p style="font-size:0.9rem; margin-top:0;">
+      1行につき「名前,期待度」の形式で入力してください。期待度が大きいほど当たりやすくなります（3,3,2,1 なら勝率はおおむね 3:3:2:1）。
+      下の「馬アイコン選択」で、それぞれの候補にどの馬を走らせるか選べます。
+    </p>
+    <label for="candidates">例：</label>
+    <textarea id="candidates">
+案A,3
+案B,3
+案C,2
+案D,1
+    </textarea>
+    <div class="odds-table" id="oddsInfo"></div>
+
+    <div class="skin-settings-title">馬アイコン選択</div>
+    <div class="skin-settings" id="skinSettings">
+      <!-- JSで候補ごとのセレクトボックスを生成 -->
+    </div>
+
+    <button id="startBtn">レーススタート</button>
+  </div>
+
+  <div class="panel track-wrapper">
+    <div class="track" id="track">
+      <div class="goal-label">ゴール</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div style="font-size:0.9rem; margin-bottom:4px;">実況ログ</div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <script>
+    const startBtn = document.getElementById("startBtn");
+    const trackEl = document.getElementById("track");
+    const logEl = document.getElementById("log");
+    const candidatesArea = document.getElementById("candidates");
+    const oddsInfoEl = document.getElementById("oddsInfo");
+    const skinSettingsEl = document.getElementById("skinSettings");
+
+
+
+    let horses = [];
+    let raceTimer = null;
+    // ==== 演出用 設定（ここだけ変えればOK） ====
+    const FX_CONFIG = {
+      // 画像ファイル（相対パス／絶対URL／data:URL すべて可）
+      sumoImage:    "./imgs/sumo.png",        // 力士
+      wrestlerImage:"./imgs/wrestler.png",    // 覆面レスラー
+      // 後で本物に差し替えるダミー画像（空文字ならフォールバック色）
+      chimpImage:  "./imgs/chimp.png",  // "chimp.png"
+      poopImage:   "./imgs/poop.png",  // "poop.png"
+      droneImage:  "./imgs/drone.png",  // "drone.png"
+      netImage:    "./imgs/net.png",  // "net.png"
+      sharkImage:  "./imgs/shark.png",
+
+      // 表示サイズ（px）
+      sumoSize: 44,
+      wrestlerSize: 52,
+      chimpSize: 46,
+      poopSize: 20,
+      droneSize: 60,
+      netSize: 64,
+      sharkSize: 120,
+
+      // 力士の速度（px/秒） ← 遅くしたい時は小さく
+      sumoSpeedPxPerSec: 500,
+      droneDropMs: 700,          // ドローンの降下時間
+      netStunTicks: 100,         // 網で完全停止する tick 長
+      sharkHideTicks: 120,       // サメに飲まれて行方不明の tick 長
+
+      // ==== 追加：イベント発生確率（0〜1） ====
+      eventProb: {
+        sniper:   0.60,  // 赤点→BANG→煙
+        sumo:     0.50,  // 力士コロコロ
+        wrestler: 0.40,   // 覆面レスラー落下
+        banana:   0.60,
+        chimp:    0.40,
+        drone:    0.30,
+        shark:    0.20
+      },
+
+      // 1頭が複数回“被弾”するのを避けるなら true
+      oneHitPerHorse: false,
+
+      // === 時間遅延ペナルティ設定（progK を減速） ===
+      penalty: {
+        slowTicks: 60,            // 減速に到達するまで
+        recoverTicks: 90,         // 元に戻るまで
+        baseDrop: 0.55,           // ピークで「1 - 0.55 = 0.45倍速」まで落とす
+        mult: { sniper: 1.0, sumo: 1.2, wrestler: 1.6, banana: 0.8, chimp: 1.1 },
+        maxDrop: 0.9              // 合算上限（0.9→最悪0.1倍速）
+      }
+    };
+
+    // --- 起動時プリロード（表示タイミング前にキャッシュしておく） ---
+    (function preloadFxImages(cfg) {
+      const keys = ["sumoImage","wrestlerImage","chimpImage","poopImage","droneImage","netImage","sharkImage"];
+      keys.forEach(k => {
+        const src = cfg[k];
+        if (!src) return;
+        const img = new Image();
+        img.src = src;
+      });
+    })(FX_CONFIG);
+
+
+
+    // --- 背景画像を即時セット。失敗したら警告だけ出す ---
+    function setBgImage(el, url) {
+      if (!url) return;
+      // まず即時に背景を指定（読み込み完了を待たない）
+      el.style.backgroundImage = `url("${url}")`;
+
+      // ログ用に非表示のテスターで読み込みだけ確認
+      const test = new Image();
+      test.onerror = () => {
+        console.warn("[画像読込失敗]", url);
+        // デバッグで目立たせたい場合は下の2行を有効化
+        // el.style.background = "#ff00ff";
+        // el.title = `画像が読めません: ${url}`;
+      };
+      test.src = url;
+    }
+
+    // ノードに <img> を入れて確実に表示するヘルパ
+    function placeFxImage(fxEl, src, {w, h, alt=""} = {}) {
+      fxEl.innerHTML = ""; // 念のため空に
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = alt;
+      img.style.display = "block";
+      img.style.width = (w ? w+"px" : "100%");
+      img.style.height = (h ? h+"px" : "100%");
+      img.style.objectFit = "cover";
+      img.style.pointerEvents = "none"; // 念のため
+
+      img.onload = () => { /* 読み込みOK */ };
+      img.onerror = () => {
+        console.warn("[画像読込失敗]", src);
+        // フォールバック可視化（必要なら）
+        fxEl.style.background = "#ff00ff";
+        fxEl.title = `画像が読めません: ${src}`;
+      };
+
+      fxEl.appendChild(img);
+    }
+
+
+
+
+
+    // ===== カオス演出 管理 =====
+    let raceOrder = [];          // initRace()で決まる最終順位の骨組み（勝者1位固定）
+    let fxTimers = [];           // setTimeoutのIDを保持（リセット用）
+
+    // 現在のtickを外から参照できるように
+    let currentTick = 0;
+
+    // ★ 新：時間遅延ペナルティを付与（progK の増分を落とす）
+    function applyPenalty(horse, kind) {
+      const pconf = FX_CONFIG.penalty;
+      const mult  = (pconf.mult && pconf.mult[kind]) || 1.0;
+      const addDrop = pconf.baseDrop * mult;           // 0〜1（1で完全停止に近い）
+      if (!horse.penalty.active) {
+        horse.penalty.active       = true;
+        horse.penalty.startTick    = currentTick;
+        horse.penalty.slowTicks    = pconf.slowTicks;
+        horse.penalty.recoverTicks = pconf.recoverTicks;
+        horse.penalty.maxDrop      = Math.min(addDrop, pconf.maxDrop); // ピーク低速化量
+      } else {
+        // 重ねがけ：ピーク低速化量を加算上限まで積む／時間も延命
+        horse.penalty.maxDrop      = Math.min((horse.penalty.maxDrop || 0) + addDrop, pconf.maxDrop);
+        horse.penalty.slowTicks    = Math.max(horse.penalty.slowTicks,    pconf.slowTicks);
+        horse.penalty.recoverTicks = Math.max(horse.penalty.recoverTicks, pconf.recoverTicks);
+      }
+    }
+
+    // ★ 新：現在のペナルティから progK 増分倍率（0..1）を返す
+    function penaltyProgressMultiplier(horse, tick) {
+      const p = horse.penalty;
+      if (!p.active || !p.maxDrop) return 1;
+      const dt = tick - p.startTick;
+      if (dt < 0) return 1;
+      const slow = p.slowTicks, rec = p.recoverTicks, A = p.maxDrop; // Aは 0..1
+      if (dt <= slow) {
+        // 1 → (1-A) に線形で落ちる
+        const t = dt / Math.max(1, slow);
+        return 1 - A * t;
+      }
+      if (dt <= slow + rec) {
+        // (1-A) → 1 にスムーズに戻る
+        const t = (dt - slow) / Math.max(1, rec); // 0..1
+        const easeOut = 1 - (1 - t) * (1 - t);
+        return (1 - A) + A * easeOut;
+      }
+      // 終了
+      horse.penalty.active = false;
+      horse.penalty.maxDrop = 0;
+      return 1;
+    }
+
+    // ★ 距離オフセットは使わない（時間遅延モデルのみ）
+    function penaltyOffsetUnits() { return 0; }
+
+    // 実効位置（ランキング用）：隠し/スタン中は freezePos、通常は pos
+    function getEffectiveDisplayPos(h, k, goal) {
+      const hidden  = h.hiddenUntilTick && k < h.hiddenUntilTick;
+      const stunned = h.stunUntilTick  && k < h.stunUntilTick;
+      if (hidden || stunned) return h.freezePos ?? h.pos;
+      return h.pos;
+    }
+
+    
+
+    // 完全停止（スタン）
+    function applyStun(horse, durationTicks) {
+      const until = currentTick + Math.max(1, durationTicks|0);
+      if (!horse.stunUntilTick || horse.stunUntilTick < until) {
+        horse.stunUntilTick = until;
+        horse.freezePos = horse.pos;  // 止める位置
+      }
+    }
+
+    // 一時的に姿を消す（見た目も消す）
+    function applyHide(horse, durationTicks) {
+      const until = currentTick + Math.max(1, durationTicks|0);
+      if (!horse.hiddenUntilTick || horse.hiddenUntilTick < until) {
+        horse.hiddenUntilTick = until;
+        horse.freezePos = horse.pos;
+        if (horse.elem) horse.elem.style.visibility = "hidden";
+      }
+    }
+
+
+
+    // 確率判定
+    function chance(p){ return Math.random() < Math.max(0, Math.min(1, p)); }
+
+    // 同じ馬に多段ヒットを避けたい場合の管理
+    let horsesHitSet = new Set();
+    function allowHit(horse){
+      if (!FX_CONFIG.oneHitPerHorse) return true;
+      if (horsesHitSet.has(horse.id)) return false;
+      horsesHitSet.add(horse.id);
+      return true;
+    }
+
+
+    // 行内座標にFXノードを置くヘルパ
+    function placeFxInRow(rowEl, xPx, yCenterPx, className, innerHTML = "") {
+      const fx = document.createElement("div");
+      fx.className = `fx ${className}`;
+      fx.style.left = `${xPx}px`;
+      fx.style.top  = `${yCenterPx}px`;
+      if (innerHTML) fx.innerHTML = innerHTML;
+      rowEl.appendChild(fx);
+      return fx;
+    }
+
+    // 馬の“見た目だけ”被弾/ノックバック（内部位置は変えない）
+    function hitHorseVisual(horse, opts = {}) {
+      const el = horse.elem;
+      el.classList.add("fx-hit");
+      if (opts.bump) {
+        el.classList.add("fx-bump");
+        // 少しだけ左に押して戻す（見た目だけ）
+        el.style.transform = "translateY(-50%) translateX(-10px)";
+        setTimeout(() => {
+          el.style.transform = "translateY(-50%)";
+          setTimeout(() => el.classList.remove("fx-bump"), 280);
+        }, 160);
+      }
+      setTimeout(() => el.classList.remove("fx-hit"), 560);
+    }
+
+    // 指定フレームでイベントを発火させる
+    function scheduleAt(frame, totalTicks, tickMs, fn) {
+      const t = Math.max(0, Math.min(frame, totalTicks)) * tickMs;
+      const id = setTimeout(fn, t);
+      fxTimers.push(id);
+    }
+
+    // 🆕 グローバル版：行内の馬の中心座標を返す
+    function horseCenterXY(horse) {
+      const rowBox = horse.elem.parentElement.getBoundingClientRect();
+      const horseBox = horse.elem.getBoundingClientRect();
+      const x = horseBox.left - rowBox.left + horseBox.width / 2;
+      const y = horseBox.top  - rowBox.top  + horseBox.height / 2;
+      return { x, y, rowEl: horse.elem.parentElement };
+    }
+
+    // ==== FXイベント用レジストリ ====
+    const FX_EVENTS = [];
+    function registerFxEvent(def) {
+      const norm = {
+        id: def.id || def.key, // 互換
+        // prob: 関数を推奨。無ければ probKey -> eventProb を参照、さらに無ければ 1
+        prob: def.prob || ((ctx) => {
+          if (def.probKey) return (ctx.FX_CONFIG.eventProb || {})[def.probKey] ?? 0;
+          return 1;
+        }),
+        pickTargets: def.pickTargets || (() => ({})),
+        schedule: def.schedule
+      };
+      FX_EVENTS.push(norm);
+    }
+
+    // 🆕 レジストリを回すだけの本体（確率判定もここで一元化）
+    function scheduleFXEvents(totalTicks, tickMs) {
+      const ctx = {
+        totalTicks, tickMs,
+        horses, raceOrder,
+        scheduleAt, horseCenterXY, placeFxInRow, hitHorseVisual,
+        applyPenalty, applyStun, applyHide, fxLog, FX_CONFIG, chance, allowHit
+      };
+
+      FX_EVENTS.forEach(ev => {
+        // prob は関数を推奨（registerFxEvent で正規化済）
+        const p = (typeof ev.prob === "function") ? ev.prob(ctx) : (ev.prob ?? 1);
+        if (!ctx.chance(p)) return;                 // ← ここで確率ゲート
+        const targets = ev.pickTargets ? ev.pickTargets(ctx) : {};
+        ev.schedule && ev.schedule(ctx, targets);   // ← スケジュールのみ実行
+      });
+    }
+
+
+    // --- 狙撃 ---
+    registerFxEvent({
+      id: "sniper",
+      prob: (ctx) => FX_CONFIG.eventProb.sniper,
+      pickTargets: ({ horses, raceOrder }) => {
+        const lastIdx = raceOrder[raceOrder.length - 1];
+        return { target: horses.find(h => h.id === lastIdx) };
+      },
+      schedule(ctx, { target }) {
+        const { totalTicks, tickMs, scheduleAt, placeFxInRow, hitHorseVisual,
+                applyPenalty, fxLog, chance, allowHit, horseCenterXY } = ctx;
+        if (!target || !allowHit(target)) return;
+
+
+        scheduleAt(Math.floor(totalTicks*0.35), totalTicks, tickMs, () => {
+          const { x, y, rowEl } = horseCenterXY(target);
+          const dot = placeFxInRow(rowEl, x+22, y-20, "fx-laser-dot");
+          setTimeout(() => {
+            placeFxInRow(rowEl, x+10, y-30, "fx-bang", "BANG!");
+            hitHorseVisual(target, { bump: true });
+            applyPenalty(target, "sniper");
+            fxLog("sniper", target);
+            for (let i=0;i<3;i++){
+              setTimeout(()=> placeFxInRow(rowEl, x+(Math.random()*20-10), y-18, "fx-smoke"), i*120);
+            }
+            setTimeout(() => dot.remove(), 300);
+          }, 380);
+        });
+      }
+    });
+
+    // --- 力士横断 ---
+    registerFxEvent({
+      id: "sumo",
+      prob: (ctx) => FX_CONFIG.eventProb.sumo,
+      pickTargets: ({ horses, raceOrder }) => {
+        const others = raceOrder.slice(1, -1);
+        const midIdx = others.length ? others[Math.floor(Math.random()*others.length)] : raceOrder[0];
+        return { target: horses.find(h => h.id === midIdx) };
+      },
+      schedule(ctx, { target }) {
+        const { totalTicks, tickMs, scheduleAt, placeFxInRow, hitHorseVisual,
+                applyPenalty, fxLog, chance, allowHit, horseCenterXY, FX_CONFIG } = ctx;
+        if (!target || !allowHit(target)) return;
+
+
+        scheduleAt(Math.floor(totalTicks*0.55), totalTicks, tickMs, () => {
+          const { y, rowEl } = horseCenterXY(target);
+          const sumo = placeFxInRow(rowEl, -20, y, "fx-sumo");
+          sumo.style.width  = FX_CONFIG.sumoSize + "px";
+          sumo.style.height = FX_CONFIG.sumoSize + "px";
+          if (FX_CONFIG.sumoImage) sumo.style.backgroundImage = `url("${FX_CONFIG.sumoImage}")`;
+
+          const distancePx = rowEl.clientWidth + 40;
+          const duration = Math.max(200, distancePx / Math.max(10, FX_CONFIG.sumoSpeedPxPerSec) * 1000);
+
+          const start = performance.now();
+          (function step(t){
+            const p = Math.min(1, (t - start)/duration);
+            sumo.style.left = `${-20 + distancePx * p}px`;
+            if (p < 1) requestAnimationFrame(step); else sumo.remove();
+          })(start);
+
+          setTimeout(() => {
+            hitHorseVisual(target, { bump: true });
+            applyPenalty(target, "sumo");
+            fxLog("sumo", target);
+          }, duration * 0.58);
+        });
+      }
+    });
+
+    // --- 覆面レスラー落下 ---
+    registerFxEvent({
+      id: "wrestler",
+      prob: (ctx) => FX_CONFIG.eventProb.wrestler,
+      pickTargets: ({ horses, raceOrder }) => {
+        const lastIdx = raceOrder[raceOrder.length - 1];
+        return { target: horses.find(h => h.id === lastIdx) };
+      },
+      schedule(ctx, { target }) {
+        const { totalTicks, tickMs, scheduleAt, placeFxInRow, hitHorseVisual,
+                applyPenalty, fxLog, chance, allowHit, horseCenterXY, FX_CONFIG } = ctx;
+        if (!target || !allowHit(target)) return;
+
+        scheduleAt(Math.floor(totalTicks*0.75), totalTicks, tickMs, () => {
+          const { x, y, rowEl } = horseCenterXY(target);
+          const w = placeFxInRow(rowEl, x, -30, "fx-wrestler");
+          w.style.width  = FX_CONFIG.wrestlerSize + "px";
+          w.style.height = FX_CONFIG.wrestlerSize + "px";
+          if (FX_CONFIG.wrestlerImage) w.style.backgroundImage = `url("${FX_CONFIG.wrestlerImage}")`;
+
+          const targetY = y - 10;
+          const start = performance.now();
+          const duration = 420;
+          (function fall(t){
+            const p = Math.min(1, (t - start)/duration);
+            const ease = 1 - Math.pow(1-p, 3);
+            w.style.top = `${-30 + (targetY + 30)*ease}px`;
+            if (p < 1) requestAnimationFrame(fall);
+            else {
+              hitHorseVisual(target, { bump: true });
+              applyPenalty(target, "wrestler");
+              fxLog("wrestler", target);
+              for (let i=0;i<4;i++){
+                setTimeout(()=> placeFxInRow(rowEl, x+(Math.random()*16-8), targetY+18, "fx-smoke"), i*90);
+              }
+              setTimeout(()=> w.remove(), 700);
+            }
+          })(start);
+        });
+      }
+    });
+
+    // --- バナナ転倒 ---
+    registerFxEvent({
+      key: "banana",
+      probKey: "banana",
+      // 先頭以外からランダムに狙う例
+      pickTargets: ({ raceOrder, horses }) => {
+        const pool = raceOrder.slice(1); // 1位は除外
+        if (!pool.length) return {};
+        const id = pool[Math.floor(Math.random() * pool.length)];
+        return { target: horses.find(h => h.id === id) };
+      },
+      schedule: (ctx, { target }) => {
+        if (!target) return;
+
+        // 確率判定 & 同一馬への多段ヒット制御
+        if (!ctx.chance(ctx.FX_CONFIG.eventProb.banana)) return;
+        if (!ctx.allowHit(target)) return;
+
+        // 中盤〜終盤あたりで発生させる例
+        const fireAt = Math.floor(ctx.totalTicks * 0.62);
+        ctx.scheduleAt(fireAt, ctx.totalTicks, ctx.tickMs, () => {
+          const { x, y, rowEl } = ctx.horseCenterXY(target);
+
+          // 🍌を表示（1.2秒で消す）
+          const peel = ctx.placeFxInRow(rowEl, x + 30, y, "fx fx-banana-emoji", "🍌");
+          peel.style.fontSize = "24px";
+          peel.style.filter = "drop-shadow(0 2px 6px rgba(0,0,0,.45))";
+          setTimeout(() => peel.remove(), 1200);
+
+          // 見た目のヒット演出＋ペナルティ付与＋ログ
+          ctx.hitHorseVisual(target, { bump: true });
+          ctx.applyPenalty(target, "banana");
+          ctx.fxLog("banana", target);
+        });
+      }
+    });
+
+    // --- チンパンジーのうんこ投擲（強い減速ペナルティ） ---
+    registerFxEvent({
+      id: "chimp",
+      prob: (ctx) => ctx.FX_CONFIG.eventProb.chimp,
+      pickTargets: ({ raceOrder, horses }) => {
+        const pool = raceOrder.slice(1); // 先頭は除外
+        if (!pool.length) return {};
+        const id = pool[Math.floor(Math.random()*pool.length)];
+        return { target: horses.find(h => h.id === id) };
+      },
+      schedule(ctx, { target }) {
+        const { totalTicks, tickMs, scheduleAt, placeFxInRow, hitHorseVisual,
+                applyPenalty, fxLog, chance, allowHit, horseCenterXY, FX_CONFIG } = ctx;
+        if (!target || !allowHit(target)) return;
+
+        const fireAt = Math.floor(totalTicks*0.45);
+        scheduleAt(fireAt, totalTicks, tickMs, () => {
+          const { x, y, rowEl } = horseCenterXY(target);
+          // 左からチンパンジー出現
+          const chimp = placeFxInRow(rowEl, Math.max(20, x-120), y-10, "fx-chimp");
+          chimp.style.width  = FX_CONFIG.chimpSize + "px";
+          chimp.style.height = FX_CONFIG.chimpSize + "px";
+          placeFxImage(chimp, FX_CONFIG.chimpImage, { w: FX_CONFIG.chimpSize, h: FX_CONFIG.chimpSize, alt: "chimp" });
+
+          // うんこ弾
+          const poop = placeFxInRow(rowEl, x-100, y-12, "fx-poop");
+          poop.style.width  = FX_CONFIG.poopSize + "px";
+          poop.style.height = FX_CONFIG.poopSize + "px";
+          placeFxImage(poop, FX_CONFIG.poopImage, { w: FX_CONFIG.poopSize, h: FX_CONFIG.poopSize, alt: "poop" });
+          // 放物線っぽく飛ばす
+          const start = performance.now(), duration = 520;
+          const sx = x-100, sy = y-12, tx = x+6, ty = y-6;
+          function fly(t){
+            const p = Math.min(1, (t - start)/duration);
+            const ease = p; // 緩和は控えめ
+            const cx = sx + (tx - sx)*ease;
+            const cy = sy + (ty - sy)*(ease) - 20*Math.sin(Math.PI*ease); // ちょい山なり
+            poop.style.left = cx + "px"; poop.style.top = cy + "px";
+            if (p < 1) requestAnimationFrame(fly);
+            else {
+              hitHorseVisual(target, { bump: true });
+              applyPenalty(target, "chimp");
+              fxLog("chimp", target);
+              setTimeout(()=> poop.remove(), 600);
+            }
+          }
+          requestAnimationFrame(fly);
+          setTimeout(()=> chimp.remove(), 1200);
+        });
+      }
+    });
+
+    // --- ドローンが網で捕獲（一定時間 完全停止） ---
+    // --- ドローンが網で捕獲（一定時間 完全停止） ---
+    registerFxEvent({
+      id: "drone",
+      prob: (ctx) => ctx.FX_CONFIG.eventProb.drone,
+      pickTargets: ({ raceOrder, horses }) => {
+        // 先頭〜中位からランダム
+        const pool = raceOrder.slice(0, Math.max(1, Math.floor(raceOrder.length*0.75)));
+        const id = pool[Math.floor(Math.random()*pool.length)];
+        return { target: horses.find(h => h.id === id) };
+      },
+      schedule(ctx, { target }) {
+        const { totalTicks, tickMs, scheduleAt, placeFxInRow, hitHorseVisual,
+                fxLog, allowHit, horseCenterXY, FX_CONFIG } = ctx;
+
+        // ★ 確率判定は scheduleFXEvents 側で実施済み。ここでは target と allowHit だけチェック
+        if (!target || !allowHit(target)) return;
+
+        const dropAt = Math.floor(totalTicks*0.5);
+        scheduleAt(dropAt, totalTicks, tickMs, () => {
+          const { x, y, rowEl } = horseCenterXY(target);
+
+          // ドローン生成
+          const drone = placeFxInRow(rowEl, x, -40, "fx-drone");
+          drone.style.width  = FX_CONFIG.droneSize + "px";
+          drone.style.height = Math.floor(FX_CONFIG.droneSize*0.67) + "px";
+          placeFxImage(drone, FX_CONFIG.droneImage, {
+            w: FX_CONFIG.droneSize,
+            h: Math.floor(FX_CONFIG.droneSize*0.67),
+            alt: "drone"
+          });
+          
+          drone.style.opacity = "1";       // ★ 追加：見えない保険
+          drone.style.display = "block";   // ★ 追加：見えない保険
+
+          // ネット生成
+          const net = placeFxInRow(rowEl, x, -20, "fx-net");
+          net.style.width  = FX_CONFIG.netSize + "px";
+          net.style.height = Math.floor(FX_CONFIG.netSize*0.7) + "px";
+          placeFxImage(net, FX_CONFIG.netImage, {
+            w: FX_CONFIG.netSize,
+            h: Math.floor(FX_CONFIG.netSize*0.7),
+            alt: "net"
+          });
+          
+          net.style.opacity = "1";         // ★ 追加
+          net.style.display = "block";     // ★ 追加
+
+          // 降下アニメ
+          const start = performance.now(), duration = FX_CONFIG.droneDropMs;
+          function fall(t){
+            const p = Math.min(1, (t - start)/duration);
+            const ease = 1 - Math.pow(1-p, 3);
+            drone.style.top = (-40 + (y-36+40)*ease) + "px";
+            net.style.top   = (-20 + (y-6 +20)*ease) + "px";
+            if (p < 1) requestAnimationFrame(fall);
+            else {
+              // 捕獲 → スタン
+              hitHorseVisual(target, { bump: true });
+              applyStun(target, FX_CONFIG.netStunTicks);
+              fxLog("drone", target);
+
+              // 後片付け
+              setTimeout(()=> { drone.remove(); }, 800);
+              setTimeout(()=> { net.remove(); }, FX_CONFIG.netStunTicks * tickMs);
+            }
+          }
+          requestAnimationFrame(fall);
+        });
+      }
+    });
+
+
+    // --- 巨大サメが出現 → 飲み込み → しばらく不在 → 尻から再出発 ---
+    registerFxEvent({
+      id: "shark",
+      prob: (ctx) => ctx.FX_CONFIG.eventProb.shark,
+      pickTargets: ({ raceOrder, horses }) => {
+        // 中〜後方からランダム
+        const pool = raceOrder.slice(Math.floor(raceOrder.length*0.4));
+        const id = pool[Math.floor(Math.random()*Math.max(1,pool.length))];
+        return { target: horses.find(h => h.id === id) };
+      },
+      schedule(ctx, { target }) {
+        const { totalTicks, tickMs, scheduleAt, placeFxInRow, hitHorseVisual,
+                fxLog, chance, allowHit, horseCenterXY, FX_CONFIG } = ctx;
+        if (!target || !allowHit(target)) return;
+
+        const fireAt = Math.floor(totalTicks*0.68);
+        scheduleAt(fireAt, totalTicks, tickMs, () => {
+          const { x, y, rowEl } = horseCenterXY(target);
+          const shark = placeFxInRow(rowEl, x+40, y, "fx-shark");
+          shark.style.width  = FX_CONFIG.sharkSize + "px";
+          shark.style.height = Math.floor(FX_CONFIG.sharkSize*0.46) + "px";
+          placeFxImage(shark, FX_CONFIG.sharkImage, {
+            w: FX_CONFIG.sharkSize,
+            h: Math.floor(FX_CONFIG.sharkSize*0.46),
+            alt: "shark"
+          });
+          // 近づく演出（軽く右→左へ）
+          shark.style.left = (x + 140) + "px";
+          const start = performance.now(), duration = 480, sx = x+140, tx = x+38;
+          function slide(t){
+            const p = Math.min(1, (t - start)/duration);
+            const ease = 1 - Math.pow(1-p, 3);
+            shark.style.left = (sx + (tx - sx)*ease) + "px";
+            if (p < 1) requestAnimationFrame(slide);
+            else {
+              // 飲み込み：馬が消える＆停止
+              hitHorseVisual(target, { bump: true });
+              applyHide(target, FX_CONFIG.sharkHideTicks);
+              fxLog("shark", target);
+
+              // 復帰（サメの尻あたり = サメの左端）で再出現
+              setTimeout(() => {
+                // まず hidden を解除（ループ側のhidden判定に勝つために時刻もリセット）
+                target.hiddenUntilTick = 0;
+                if (target.elem) {
+                  target.elem.style.visibility = "visible";
+                }
+
+                // サメは去るアニメーション
+                const leaveStart = performance.now(), leaveDur = 520;
+                function leave(t2){
+                  const p2 = Math.min(1, (t2 - leaveStart)/leaveDur);
+                  shark.style.left = (tx + 200*p2) + "px";
+                  shark.style.opacity = (1-p2).toFixed(3);
+                  if (p2 < 1) requestAnimationFrame(leave);
+                  else shark.remove();
+                }
+                requestAnimationFrame(leave);
+              }, FX_CONFIG.sharkHideTicks * tickMs);
+            }
+          }
+          requestAnimationFrame(slide);
+        });
+      }
+    });
+
+
+    // 走行終了時などにFXタイマーをクリア（多重起動防止）
+    function clearFXTimers() {
+      fxTimers.forEach(id => clearTimeout(id));
+      fxTimers = [];
+    }
+
+
+    // プログラム側に用意しておく「馬スキン」一覧
+    const horseSkins = [
+      { id: "brown", label: "茶色の馬", emoji: "🐎", bg: "#f97316", color: "#111827" },
+      { id: "white", label: "白い馬", emoji: "🐎", bg: "#e5e7eb", color: "#111827" },
+      { id: "black", label: "黒い馬", emoji: "🐎", bg: "#111827", color: "#e5e7eb" },
+      { id: "red",   label: "赤いゼッケン馬", emoji: "🐴", bg: "#ef4444", color: "#f9fafb" },
+      { id: "blue",  label: "青いゼッケン馬", emoji: "🐴", bg: "#3b82f6", color: "#0f172a" },
+      { id: "green", label: "緑のゼッケン馬", emoji: "🐴", bg: "#22c55e", color: "#0f172a" }
+    ];
+
+    // 名前ごとの選択スキンIDを保持
+    const skinChoiceByName = {};
+
+    function parseCandidates() {
+      const lines = candidatesArea.value.split("\n")
+        .map(l => l.trim())
+        .filter(l => l.length > 0);
+      const result = [];
+      for (const line of lines) {
+        const parts = line.split(",");
+        if (parts.length < 2) continue;
+        const name = parts[0].trim();
+        const weight = parseFloat(parts[1]);
+        if (!name || isNaN(weight) || weight <= 0) continue;
+        result.push({ name, weight });
+      }
+      return result;
+    }
+
+    function showOddsPreview() {
+      const parsed = parseCandidates();
+      const sum = parsed.reduce((s,h) => s + h.weight, 0);
+      if (!parsed.length || sum === 0) {
+        oddsInfoEl.textContent = "";
+        return;
+      }
+      const spans = parsed.map((h,i) => {
+        const p = (h.weight / sum) * 100;
+        return `<span>${h.name}: 約${p.toFixed(1)}%</span>`;
+      });
+      oddsInfoEl.innerHTML = "理論上の当選確率（スタート前のオッズ）: " + spans.join("");
+    }
+
+    function rebuildSkinSettings() {
+      const parsed = parseCandidates();
+      skinSettingsEl.innerHTML = "";
+
+      if (!parsed.length) return;
+
+      parsed.forEach((h, idx) => {
+        // 以前選んでいなければ、違う馬がなるべく均等に割り当たるように
+        if (!skinChoiceByName[h.name]) {
+          const skin = horseSkins[idx % horseSkins.length];
+          skinChoiceByName[h.name] = skin.id;
+        }
+        const row = document.createElement("div");
+        row.className = "skin-row";
+
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = h.name;
+        row.appendChild(nameSpan);
+
+        const select = document.createElement("select");
+        horseSkins.forEach(skin => {
+          const opt = document.createElement("option");
+          opt.value = skin.id;
+          opt.textContent = `${skin.label} ${skin.emoji}`;
+          if (skinChoiceByName[h.name] === skin.id) opt.selected = true;
+          select.appendChild(opt);
+        });
+
+        select.addEventListener("change", () => {
+          skinChoiceByName[h.name] = select.value;
+        });
+
+        row.appendChild(select);
+        skinSettingsEl.appendChild(row);
+      });
+    }
+
+    candidatesArea.addEventListener("input", () => {
+      showOddsPreview();
+      rebuildSkinSettings();
+    });
+
+    showOddsPreview();
+    rebuildSkinSettings();
+
+    function log(msg) {
+      const time = new Date().toLocaleTimeString("ja-JP",{hour12:false});
+      logEl.textContent += `[${time}] ${msg}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    // カオス演出のログ文生成
+    function fxLog(kind, horse) {
+      const T = {
+        sniper: [
+          "{name}、遠距離からの狙撃でフラつき遅延",
+          "{name}、レーザーサイトに怯え減速",
+          "{name}、銃撃 で心が折れ遅延"
+        ],
+        sumo: [
+          "{name}、転がる力士に巻き込まれ減速",
+          "{name}、コース外からの乱入力士で速度低下",
+          "{name}、爆速回転力士のかち上げで遅延"
+        ],
+        wrestler: [
+          "{name}、突如降ってきた覆面レスラーに潰され遅延",
+          "{name}、空からのボディプレスで大幅減速",
+          "{name}、謎の飛来レスラーの餌食となり失速"
+        ],
+
+        banana: [
+            "{name}、バナナの皮でスリップし遅延", 
+            "{name}、バナナの皮で間抜けに転倒し失速",
+            "{name}、バナナの皮にひっかかりあえなく減速",
+        ],
+        chimp: [
+            "{name}、チンパンジーの投擲うんこで視界ゼロ＆減速",
+            "{name}、うんこまみれで集中力喪失し遅延",
+            "{name}、強烈なスメルで涙目スリップ減速"
+        ],
+        drone: [
+            "{name}、ドローンの網に絡め取られ完全停止！",
+            "{name}、ドローン捕獲で一時レース離脱",
+            "{name}、上空からのネット攻撃で完全に足止め"
+        ],
+        shark: [
+            "{name}、巨大サメに飲み込まれ行方不明…",
+            "{name}、サメの胃袋ツアーへ出発（しばらく不在）",
+            "{name}、サメの尻から再出発予定（しばし待たれよ）"
+        ]
+      };
+      const arr = T[kind] || ["{name}、事故で減速"];
+      const msg = arr[Math.floor(Math.random()*arr.length)].replace("{name}", horse.name);
+      log("💥 " + msg);
+    }
+
+
+    // 重み付き抽選で勝者を1頭決める
+    function pickWinnerIndex(parsed) {
+      const sumWeight = parsed.reduce((s,h) => s + h.weight, 0);
+      const r = Math.random() * sumWeight;
+      let acc = 0;
+      for (let i = 0; i < parsed.length; i++) {
+        acc += parsed[i].weight;
+        if (r <= acc) return i;
+      }
+      return parsed.length - 1;
+    }
+
+    function initRace() {
+      const parsed = parseCandidates();
+      if (!parsed.length) {
+        alert("候補が正しく入力されていません。例にならって「名前,期待度」の形式で入力してください。");
+        return false;
+      }
+
+      const winnerIndex = pickWinnerIndex(parsed);
+
+      horses = parsed.map((h,i) => ({
+        id: i,
+        name: h.name,
+        weight: h.weight,
+        skinId: skinChoiceByName[h.name] || horseSkins[i % horseSkins.length].id,
+        pos: 0,
+        elem: null,
+        targetFraction: 0,
+        profile: [],
+        penalty: { active:false, startTick:0, slowTicks:0, recoverTicks:0, maxUnits:0 },
+        stunUntilTick: 0,
+        hiddenUntilTick: 0,
+        freezePos: 0,
+        progK: 0          // ★ 追加：各馬の「自分用の時間」（内部進捗）
+      }));
+
+      // 勝者1位固定、他はシャッフル
+      const indices = horses.map((_,i) => i);
+      const others = indices.filter(i => i !== winnerIndex);
+      for (let i = others.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [others[i], others[j]] = [others[j], others[i]];
+      }
+      const order = [winnerIndex, ...others];
+      raceOrder = order.slice();
+
+      // 最終位置の割合（1位:1.0、以下少しずつ後ろに）
+      const baseGoal = 1.0;
+      const gap = 0.03;
+      order.forEach((idx, rank) => {
+        const base = baseGoal - gap * rank;
+        const jitter = (Math.random() - 0.5) * 0.02;
+        let frac = base + jitter;
+        if (rank === 0) frac = 1.0;
+        if (frac < 0.7) frac = 0.7;
+        horses[idx].targetFraction = frac;
+      });
+
+
+
+      // トラック描画
+      trackEl.querySelectorAll(".horse-row").forEach(el => el.remove());
+      horses.forEach((h, idx) => {
+        const row = document.createElement("div");
+        row.className = "horse-row";
+
+        const label = document.createElement("div");
+        label.className = "horse-label";
+        label.textContent = h.name;
+        row.appendChild(label);
+
+        const horseEl = document.createElement("div");
+        horseEl.className = "horse";
+
+        const skin = horseSkins.find(s => s.id === h.skinId) || horseSkins[0];
+        horseEl.style.background = skin.bg;
+        horseEl.style.color = skin.color;
+        horseEl.textContent = skin.emoji;
+
+        row.appendChild(horseEl);
+        trackEl.appendChild(row);
+        h.elem = horseEl;
+      });
+
+      logEl.textContent = "";
+      log(`出走馬: ${horses.map(h => h.name).join(" / ")}`);
+
+      const sumWeight = parsed.reduce((s,h) => s + h.weight, 0);
+      log(
+        "今回のオッズ: " +
+        horses.map(h => `${h.name}:${(h.weight/sumWeight*100).toFixed(1)}%`).join(" / ")
+      );
+      //log("オッズに比例した確率で先に勝者を抽選し、その結果に合わせて各馬の「逃げ・差し・追い込み」プロファイルを生成しています。");
+
+      return true;
+    }
+
+    // 各馬の「ジリジリ前進プロファイル」（単調増加＋脚質パターン）
+    function prepareProfiles(horses, goal, totalTicks) {
+      const patternTemplates = [
+        { name: "逃げ",  early: 1.4, mid: 1.0, late: 0.7 },
+        { name: "先行",  early: 1.2, mid: 1.1, late: 0.8 },
+        { name: "差し",  early: 0.8, mid: 1.3, late: 1.0 },
+        { name: "追込",  early: 0.7, mid: 1.0, late: 1.4 },
+        { name: "平均",  early: 1.0, mid: 1.0, late: 1.0 }
+      ];
+
+      const winnerIndex = horses.findIndex(x => x.targetFraction === 1.0);
+
+      horses.forEach((h, index) => {
+        let pattern;
+        if (index === winnerIndex) {
+          const cand = [patternTemplates[2], patternTemplates[3], patternTemplates[1], patternTemplates[4]];
+          pattern = cand[Math.floor(Math.random() * cand.length)];
+        } else {
+          pattern = patternTemplates[Math.floor(Math.random() * patternTemplates.length)];
+        }
+
+        const speeds = [];
+        let totalRaw = 0;
+        for (let k = 0; k <= totalTicks; k++) {
+          const t = k / totalTicks;
+          let base;
+          if (t < 0.33) base = pattern.early;
+          else if (t < 0.66) base = pattern.mid;
+          else base = pattern.late;
+
+          const jitter = 0.9 + Math.random() * 0.2; // 0.9〜1.1
+          const v = Math.max(0.001, base * jitter);
+          speeds.push(v);
+          totalRaw += v;
+        }
+
+        const scale = goal * h.targetFraction / totalRaw;
+        const profile = [];
+        let acc = 0;
+        for (let k = 0; k <= totalTicks; k++) {
+          acc += speeds[k] * scale;
+          if (acc > goal * h.targetFraction) acc = goal * h.targetFraction;
+          profile.push(acc);
+        }
+        h.profile = profile;
+      });
+    }
+
+    function startRace() {
+      if (!initRace()) return;
+
+      startBtn.disabled = true;
+
+      const goal = 1000;
+      const totalTicks = 320;
+      const tickMs = 40;
+      
+      clearFXTimers(); 
+      horsesHitSet = new Set();   // ← 追加：被弾リセット
+      prepareProfiles(horses, goal, totalTicks);
+
+      scheduleFXEvents(totalTicks, tickMs);  
+
+      let tick = 0;
+      raceTimer = setInterval(() => {
+        const k = Math.min(tick, totalTicks);
+        
+        // ループの先頭で現在tickを公開
+        currentTick = tick;
+
+        horses.forEach(h => {
+          const hidden  = h.hiddenUntilTick && currentTick < h.hiddenUntilTick;
+          const stunned = h.stunUntilTick   && currentTick < h.stunUntilTick;
+          if (h.elem) h.elem.style.visibility = hidden ? "hidden" : "visible";
+
+          // ★ スタン/隠し中は進まない。ペナルティ中は倍率 < 1 で進む
+          if (!hidden && !stunned) {
+            const mul = penaltyProgressMultiplier(h, k);      // 0..1
+            h.progK = Math.min(h.profile.length - 1, h.progK + mul);
+          }
+
+          // 内部位置は progK による
+          h.pos = h.profile[Math.round(h.progK)];
+
+          // 表示位置：時間遅延モデルなので距離オフセットは使わない
+          const maxPos = goal * h.targetFraction;
+          let displayPos;
+          if (hidden || stunned) {
+            displayPos = h.freezePos ?? h.pos;
+          } else {
+            displayPos = h.pos;
+            if (displayPos < 0) displayPos = 0;
+            if (displayPos > maxPos) displayPos = maxPos;
+            h.freezePos = displayPos;
+          }
+
+          const ratio = Math.max(0, Math.min(1, displayPos / goal));
+          h.elem.style.left = (ratio * 92) + "%";
+        });        
+
+        if (tick === Math.floor(totalTicks*0.25) ||
+            tick === Math.floor(totalTicks*0.5)  ||
+            tick === Math.floor(totalTicks*0.75)) {
+          const leader = horses
+            .slice()
+            .sort((a,b) => getEffectiveDisplayPos(b, k, goal) - getEffectiveDisplayPos(a, k, goal))[0];
+          log(`現在先頭は ${leader.name}！`);
+        }
+
+        if (tick >= totalTicks) {
+          clearInterval(raceTimer);
+          raceTimer = null;
+
+          const ranking = horses
+            .slice()
+            .sort((a,b) => getEffectiveDisplayPos(b, totalTicks, goal) - getEffectiveDisplayPos(a, totalTicks, goal));
+          
+          const winner = ranking[0];
+
+          log("");
+          log(`🏁 ゴールイン！`);
+          log(`1着: ${winner.name}`);
+          log("最終順位:");
+          ranking.forEach((h,i) => {
+            log(`${i+1}着: ${h.name}`);
+          });
+
+          winner.elem.style.boxShadow = "0 0 18px rgba(250,204,21,0.9)";
+          winner.elem.style.transform = "translateY(-50%) scale(1.1)";
+          const msg = document.createElement("div");
+          msg.className = "winner";
+          msg.textContent = `採用候補は「${winner.name}」！`;
+          logEl.appendChild(msg);
+          logEl.scrollTop = logEl.scrollHeight;
+
+          startBtn.disabled = false;
+        }
+
+        tick++;
+      }, tickMs);
+    }
+
+    startBtn.addEventListener("click", () => {
+      if (raceTimer) return;
+      startRace();
+    });
+  </script>
+</body>
+</html>
