@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>アサーション検定</title>
+  <style>
+    :root{
+      --bg:#0f172a; /* slate-900 */
+      --card:#111827; /* gray-900 */
+      --fg:#e5e7eb; /* gray-200 */
+      --muted:#94a3b8; /* slate-400 */
+      --accent:#22d3ee; /* cyan-400 */
+      --ok:#34d399; /* green-400 */
+      --bad:#f87171; /* red-400 */
+      --warn:#fbbf24; /* amber-400 */
+    }
+    html,body{height:100%}
+    body{
+      margin:0; padding:0; background:radial-gradient(1200px 600px at 20% -10%, #0b1328, #0f172a 40%, #0b1023); color:var(--fg);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+      display:flex; align-items:center; justify-content:center; transition: background 600ms ease;
+    }
+    .container{ width:min(1200px, 96vw); margin:32px auto; }
+    .title{ font-size: clamp(24px, 3.6vw, 40px); font-weight:800; letter-spacing:0.02em; margin-bottom:8px; }
+    .subtitle{ color:var(--muted); margin-bottom:18px; }
+    .card{ background:rgba(17,24,39,0.86); border:1px solid rgba(255,255,255,0.06); border-radius:20px; box-shadow:0 10px 40px rgba(0,0,0,0.35); padding:18px; }
+    .row{ display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+    .left, .right{ flex:1 1 360px; }
+
+    .progress{ height:10px; border-radius:999px; background:rgba(148,163,184,0.2); overflow:hidden; }
+    .bar{ height:100%; width:0%; background:linear-gradient(90deg, var(--accent), #60a5fa); transition: width 300ms ease; }
+
+    .q-meta{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin:10px 0 14px; color:var(--muted); font-size:14px; }
+    .q-text{ font-size: clamp(18px, 2.2vw, 24px); line-height:1.5; font-weight:700; }
+
+    .meme-img-wrap{ margin-top:12px; border-radius:14px; overflow:hidden; border:1px solid rgba(255,255,255,0.08); background:#0b1023; transition: transform 300ms ease, opacity 300ms ease; }
+    .meme-img{
+  width:100%;
+  height:auto;           /* ← 固定高さをやめる */
+  max-height:40vh;       /* ← 画面の高さいっぱいにならないように制限 */
+  object-fit:contain;    /* ← 画像が切れない */
+  display:block;
+}
+
+    .meme-caption{ font-size:14px; color:var(--muted); padding:6px 10px 10px; }
+
+    /* 参加者の解答グリッド */
+    .players{ display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:12px; margin-top:12px; }
+    .player{ border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:10px; background:rgba(255,255,255,0.02); }
+    .player h4{ margin:0 0 8px; font-size:14px; color:var(--muted); font-weight:800; letter-spacing:0.02em; }
+
+    /* 可変択数でも綺麗に並ぶ */
+    .choices{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:8px; }
+    .choice{ user-select:none; cursor:pointer; border-radius:12px; padding:12px 10px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.03); font-weight:800; letter-spacing:0.02em; text-align:center; transition: transform 120ms ease, background 120ms ease, border-color 120ms ease; color: var(--fg); }
+    .choice:hover{ transform: translateY(-1px); background:rgba(255,255,255,0.07); }
+    .choice.selected{ outline:2px solid #60a5fa; background:rgba(96,165,250,0.12); border-color:rgba(96,165,250,0.5); }
+    .choice.correct{ outline:2px solid var(--ok); background:rgba(52,211,153,0.16); border-color:rgba(52,211,153,0.6); }
+    .choice.wrong{ outline:2px solid var(--bad); background:rgba(248,113,113,0.16); border-color:rgba(248,113,113,0.6); }
+
+    .actions{ display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+    .btn{ cursor:pointer; border:none; border-radius:12px; padding:12px 14px; font-weight:800; letter-spacing:0.03em; background:linear-gradient(180deg, #22d3ee, #3b82f6); color:#0b1023; box-shadow:0 6px 24px rgba(34,211,238,0.35); transition: filter 120ms ease; }
+    .btn.secondary{ background:transparent; color:var(--fg); border:1px solid rgba(255,255,255,0.2); box-shadow:none; }
+    .btn:disabled{ opacity:0.6; cursor:not-allowed; }
+
+    .score{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:10px; font-size:14px; color:var(--muted); }
+    .score strong{ color:var(--fg); }
+
+    .pill{ display:inline-block; padding:6px 10px; border:1px solid rgba(255,255,255,0.1); border-radius:999px; font-size:12px; color:var(--muted); }
+
+    .footer{ margin-top:12px; color:var(--muted); font-size:12px; text-align:center; }
+
+    /* スタートダイアログ */
+    .start{ margin-bottom:14px; }
+    .input{ width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.04); color:var(--fg); }
+    .hint{ font-size:12px; color:var(--muted); margin-top:6px; }
+    .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .chip{ display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18); }
+    .chip button{ cursor:pointer; border:none; background:transparent; color:var(--fg); font-weight:800; }
+
+    /* ランキング */
+    .rank{ margin-top:10px; }
+    .rank table{ width:100%; border-collapse: collapse; }
+    .rank th, .rank td{ padding:10px; border-bottom:1px solid rgba(255,255,255,0.08); text-align:left; }
+    .rank th{ color:var(--muted); font-weight:700; }
+
+    /* ↓ 追加：正解発表後のコメント表示 */
+    .reveal-comment{
+      margin-top:12px; padding:12px 14px; border-radius:12px;
+      background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12);
+      font-size:14px; line-height:1.6; color:var(--fg);
+    }
+    .reveal-comment .label{ color:var(--muted); font-weight:700; margin-right:6px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="title">アサーティブ検定 <span class="pill">誰が一番アサーティブなのか！？</span></div>
+    <div class="subtitle">開始前に参加者を一人ずつ追加→<strong>開始ボタン</strong>でスタート！</div>
+
+    <div class="row">
+      <div class="left">
+        <div class="card" id="playarea">
+          <div class="progress" aria-label="進行度"><div class="bar" id="progressBar"></div></div>
+          <div class="q-meta">
+            <div id="counter">-</div>
+            <div>スコア合計：<strong id="scoreNow">0</strong></div>
+          </div>
+
+          <div id="startPanel" class="start">
+            <label for="nameInput"><strong>参加者名を入力 → 「追加」</strong></label>
+            <div style="display:flex; gap:8px; margin-top:6px; flex-wrap:wrap">
+              <input id="nameInput" class="input" placeholder="例）朝井貞武" style="flex:1 1 240px" />
+              <button class="btn" id="addBtn" type="button">参加者を追加</button>
+            </div>
+            <div class="hint"><u>検定開始ボタン</u>でアサーション検定スタート</div>
+            <div id="chips" class="chips"></div>
+            <div class="actions" style="margin-top:10px">
+              <button class="btn secondary" id="clearBtn" type="button">全員削除</button>
+              <button class="btn" id="startBtn" type="button" disabled>開始</button>
+            </div>
+          </div>
+
+          <div class="q-text" id="qText" style="display:none">読み込み中…</div>
+          <!-- 置き換え：画像/動画 共通のメディア枠 -->
+          <div class="meme-img-wrap" id="mediaWrap" style="display:none">
+            <img class="meme-img" id="memeImg" alt="image" style="display:none" />
+            <!-- YouTube埋め込み用 -->
+            <div class="media-iframe-wrap" style="position:relative; width:100%; aspect-ratio:16/9; display:none" id="ytWrap">
+              <iframe id="ytFrame" title="YouTube video" frameborder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowfullscreen
+                      style="position:absolute; inset:0; width:100%; height:100%; border:0;"></iframe>
+            </div>
+            <!-- HTML5動画ファイル用（mp4/webmなど） -->
+            <div class="media-iframe-wrap" style="position:relative; width:100%; aspect-ratio:16/9; display:none" id="vidWrap">
+                <video id="html5Video" controls playsinline
+                       style="position:absolute; inset:0; width:100%; height:100%; border:0;"></video>
+            </div>
+            <div class="meme-caption" id="memeCaption"></div>
+          </div>
+  
+
+          <div id="playersGrid" class="players" style="display:none"></div>
+
+          <!-- ↓ 追加：正解発表後のコメント表示エリア -->
+          <div id="commentBox" class="reveal-comment" style="display:none;"></div>
+
+          <div class="actions">
+            <button class="btn" id="revealBtn" disabled>正解発表</button>
+            <button class="btn secondary" id="nextBtn" disabled>次の問題 →</button>
+            <button class="btn secondary" id="resetBtn">リセット</button>
+          </div>
+        </div>
+        <div class="footer">ヒント：全員が選択しないと<em>正解発表</em> が有効にならないよ！</div>
+      </div>
+
+      <div class="right">
+        <div class="card">
+          <div style="font-weight:800; margin-bottom:6px">現在のスコア</div>
+          <div id="scoreBoard" class="score"></div>
+          <hr style="margin:14px 0; border-color:rgba(255,255,255,0.08)" />
+          <div style="font-weight:800; margin-bottom:6px">最終結果</div>
+          <div id="finalRank" class="rank" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========= データ =========
+    // ★順序固定★ この QUESTIONS を上から順に出題します。
+    // 画像は image を指定した問題のみ表示。caption は任意。
+    // 正解は answerIndex (数値) か answerText (choicesの文字列) のどちらか。
+    // コメントは comment に文字列を入れると、正解発表後に表示されます（任意）。
+    const QUESTIONS = [
+      { text:'英語で「アサーション」（assertion）\nとはどう言う意味ですか？',
+        choices:['配慮すること','主張すること','提案すること', '同意を得ること', '命令すること'], answerIndex:1,
+        comment:'直訳すると、「アサーション」（assertion）は\n「主張すること」「断言すること」という意味です。' },
+      
+      { text:'次のうち、\nアサーティブなコミュニケーション(assertive communication）\nに該当しない要素は？？',
+        choices:['配慮すること','主張すること','提案すること', '同意を得ること', '命令すること'], answerIndex:4,
+        comment:'「自己主張」するだけではなく、相手に「配慮」し、\n代案を「提案」したり、きちんと「同意を得る」ことが\nアサーティブなコミュニケーション(assertive communication）に該当します。\n「命令」「非難」「皮肉」などが入ると「攻撃的」（aggresive）なコミュニケーションになります。' },
+    
+      { text:'以下のうちどの要素が欠如すると、即座に\n「ノンアサーティブ」（non-assertive：アサーティブでないこと）となってしまいますか？',
+        choices:['配慮すること','主張すること','提案すること', '同意を得ること'], answerIndex:1,
+        comment:'自己主張ができずに、嫌なことばかり押し付けられたりする人は「ノンアサーティブ」になっています。' },
+      
+      { text:'上司にプロジェクトの相談をしようとしたら「今日忙しいんだよ、後にして！」と言われました。\nあなたは「急いでいるのはこちらも同じです！案件は今日締め切りなんですよ！\n対応してくれないと困ります！」\nと伝えました。この対応はアサーティブ？',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ'], answerIndex:2,
+        comment:'「急いでいるのはこちらも同じです！」→相手の忙しさを否定してしまっています。配慮に欠けます。\n「案件は今日締め切りなんですよ！」→主張はできています。\n「対応してくれないと困ります！」→自己主張だけで代案提示や同意取得がありません。\nアグレッシブな対応で、相手を怒らせて結果的に自分の要求元おらない可能性が高いです。' },
+    
+      { text:'上司にプロジェクトの相談をしようとしたら「今日忙しいんだよ、後にして！」と言われました。\nあなたは「すみません！」と謝ってしまいました。\n結果、相談できないまま締め切りがきて、結果的にプロジェクトは失敗し、その責任を追及されました。\nこの対応はアサーティブ？',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ'], answerIndex:1,
+        comment:'「自己主張」すべき案件（今日中に方針を決めないといけないプロジェクトについての相談）\nがあるのに上司の言い分に負けて相談できなかったあなたは、ノンアサーティブです。' },
+      
+      { text:'上司にプロジェクトの相談をしようとしたら「今日忙しいんだよ、後にして！」と言われました。\nあなたは「忙しい中すみません。ですがこの案件は今日中に締め切りなんです。\n5分程度で構いませんので、16時に状況だけ共有できますか？」\nと伝えました。この対応はアサーティブ？',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ'], answerIndex:0,
+        comment:'「忙しいなかすみません」→「配慮」\n「ですがこの案件は今日中に締め切りなんです。」→「主張」\n「5分程度で構いませんので、16時に状況だけ共有できませんか？」\n→「代案の提案」&「同意を求める」\n以上の要素が揃っています。\nアグレッシブワードはありません。' },
+
+      { text:'友達が仕事中に、愚痴を話してきますが、あなたは仕事に集中できず困っています。\nそこであなたは「ちょっと仕事に集中できないから静かにしてくれる？」と言いました。この対応はアサーティブ？',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ'], answerIndex:2,
+        comment:'「ちょっと仕事に集中できないから静かにしてくれる？」→自己主張はできています。\nただ、これだけだと言い方が冷たく感じます。\n「配慮」→「大変だったね。」\n「代案提示&同意取得」→「今は忙しいから昼休みにゆっくり聞かせて。どうかな？」\nのようにアサーティブにするための要素を追加してみましょう。\nこのままだとアグレッシブです。' },
+
+      { text:'職場で帰り際に同僚のミスが発覚、みんなでやり直しになりました。\nあなたは「なんで指示どおりにやらないんですか？ちゃんとやってください。」\nと同僚に注意しました。この対応はアサーティブ？',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ'], answerIndex:2,
+        comment:'相手を責める表現はアグレッシブ。\nミスした事実（変えられない過去）を責めるより、次どうすればミスしないか伝える方が建設的。\n変えられない過去を責められたら誰だって困ってしまいます。' },
+
+      { text:'あなたがメールでチームメンバーに一斉送信で連絡事項を伝えたところ、一人のメンバーがすぐに対応した旨をあなた宛で送ってくれました。\nただ、あなたがその内容を改めて全体に伝え直す必要がありました。\nあなたはそのメンバーに「昨日は迅速な対応本当に助かりました。\nよかったら次回からはCCで全員に送っていただけるとさらに助かります。」と言いました。\nこの対応はアサーティブ？',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ'], answerIndex:0,
+        comment:'「迅速な対応本当に助かりました」→感謝することで労力に配慮。\n「次回からはCCで全員に送っていただけるとさらに助かります」→きちんと頼みたいことを主張することを忘れない、\n配慮＋主張でこれはアサーティブな対応です。' },
+
+      { text:'会議で、同僚に自分の意見がことごとく却下されてしまいました。\n同僚の言っていることは正論で、ぐうの音も出ませんでしたが、言い方が癇に障って会議後もモヤモヤします。\nつい「あいつはあんな言い方するから彼女できないんだよ」と愚痴ってしまいました。\nこの対応はアサーティブ？',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ'], answerIndex:2,
+        comment:'間接的であれ陰口のような形での非難はあなたの信頼を損ないます。\nいい方が気に触るのであれば、場を選び、直接本人にフィードバックするのが建設的です。\nもちろんフィードバックする際もアサーティブな伝え方を忘れずに。' },
+    
+        { text:'言い方が癇に障る同僚に直してほしいのでフィードバックします。\n「○○は毎回洞察が鋭くて感心するよ。あまりに鋭くて言い方も相まってミーティングとわかってても凹んじゃうぐらいだから、できればもっとお手柔らかに頼むよ。」」\nこの対応はアサーティブ？',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ'], answerIndex:0,
+        comment:'「○○は毎回洞察が鋭くて感心するよ」→相手を立てることで配慮。\n「あまりに鋭くて言い方も相まってミーティングとわかってても凹んじゃう」→言い方がきついとテクニカルに指摘。\n「できればもっとお手柔らかに頼むよ。」→主張。\n配慮＋主張でアサーティブです。' },
+    
+      { text:'御釈迦様が天国から垂らしてくれた蜘蛛の糸を登るカンダタが、\n下から登ってくる亡者たちを見て放った言葉。\n「こら、罪人ども。この蜘蛛の糸は俺のものだぞ。（中略）下りろ。下りろ。」\nこの対応はアサーティブ？',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ'], answerText:"アグレッシブ",
+        comment:'「こら、罪人ども」→注意・非難\n「この糸は俺のものだぞ。」→天国に登りたいのは皆同じだが、自分のことしか考えていない主張。\n「下りろ、下りろ」→命令\nアグレッシブな対応です。' },
+    
+      { text:'御釈迦様が天国から垂らしてくれた蜘蛛の糸を登るカンダタが、\n下から登ってくる亡者たちを見て放った言葉。\n「ちょいとみんな、蜘蛛の糸が切れるといけないから、\n一人ずつのぼるというのはどうだい？俺が登るまで、待っててくれよ」\nこの対応はアサーティブ？',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ'], answerText:"アサーティブ",
+        comment:'「一人ずつ登ると言うのはどうだい？」→代案の提示&同意の取得\n「俺が登るまで、まっててくれよ」→主張&代案の提示\nアサーティブな対応です。' },
+
+      { text:'iPhone 11の発売時、長蛇の列に並ぶ客\n「世界的ですもんね、乗るしかない、このビッグウェーブに」\nこの発言はアサーティブ？',
+        image:'img/bigwave.jpg', caption:'',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ', 'オプティミスティック','エキセントリック', 'ミーハー'], answerText:'ミーハー',
+        comment:'アサーションとは関係なく、ただのミーハーです。\n野次馬です。\nただし、ノリがいいことに全振りしている陽気な態度は、\n多くの人に刺さります。\nやってることはさておき、好感触を得やすいタイプです。' },
+
+        
+      { text:'早稲田大学の教授で経済学者の植草一秀氏が\n女子高生のスカートを手鏡で覗きタイホされていた事実を知った学生\n「経済を見通すのではなく\nスカートの中を見通していたとは…」\nこの発言はアサーティブ？',
+        image:'img/inside_skirt.jpg', caption:'',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ', 'ユーフォリック','ハイパボリック','シニカル','グリフィンドールに10points'], answerText:'グリフィンドールに10points',
+        comment:'うまいこと言ってやった感が腹立たしいですが、\n該当インタビューでこの回答は、正直面白すぎる。\n認めざるを得ません。\nグリフィンドールに10points!' },
+
+      { text:'2017年9月3日に、秋篠宮家の長女眞子さまが婚約内定したニュースを受けて\n該当インタビューで「マジでショックです！でも幸せならOKです！」と\nショックを受けつつも眞子さまにエールを送る学生\nこの発言はアサーティブ？',
+        image:'img/幸せならOK.jpg', caption:'',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ', 'ノスタルジック','ハードボイルド','エッジィ'], answerText:'ノンアサーティブ',
+        comment:'本当は好きなんだろ！？\n今すぐ「ちょっと待った！」しにいけよ！\n朗報を待ってるぞ！' },
+
+      { text:'Aさんがいつも仕事から疲れて帰ってくると、妻も子供も食事を食べ終わっており、\n妻が「残り物冷蔵庫に入れてあるからチンして食べて！」と言ってきます。\nそんな毎日ですが、Aさんはなんの心のしこりもなく毎日幸せに過ごしています。\nAさんの態度はアサーティブ？',
+        image:'img/幸せならOK.jpg', caption:'',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ', 'エクスファミレーション','レジデンシャリアン','アートレイター'], answerText:'レジデンシャリアン',
+        comment:'Aさんは文字通り\nレジデンシャリアン\n（Residentiarian:食卓の残りが与えられる人）\nです。\nちなみにエクスファミレーション(exfamiliation)は家族から追放されること\nアートレイター（Artolater）はパンを崇拝する人です' },
+
+      { text:'Bさんはどうしても精和病院に勤めたいようです。\n琉大病院が準公務員だからって舐めてるのでしょうか？\nBさんの態度はアサーティブ？',
+        image:'img/幸せならOK.jpg', caption:'',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ', 'クレプトマニア','ピロマニア','エンプレオマニア'], answerText:'エンプレオマニア',
+        comment:'Bさんは文字通り\nエンプレオマニア\n（Empleomania:公的役職に就きたいという躁病的衝動）\nです。\n県立精話病院は公務員なだけで給料は安いです。\nちなみにクレプトマニア(Kleptomania)は窃盗症\nピロマニア(Pyromania)は放火癖です' },
+      
+      { text:'教授はいつ見ても製薬会社のMRさんと一緒にいますね。\n一昨日はヤンセンファーマ、昨日は大塚製薬、今日はベアトリスと一緒でした。\n教授の態度はアサーティブ？',
+        image:'img/幸せでもNG.PNG', caption:'',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ', 'ビスカンバー','アンビデクスター','レジデンシャリアン'], answerText:'アンビデクスター',
+        comment:'教授は文字通り\nアンビデクスター\n（Ambidexter:両サイドから賄賂を受け取る人）\nです。\nちなみにビスカンバー(Bescumber)はクソを撒き散らすことです。\n今回ばかりは複数正解を検討しましたが、\n憶測でものを言うのはやめときました！' },
+
+      { text:'どんないやなことがあっても、仲間がいれば乗り越えられます。\nそれが人生ってもんです。\n今日は楽しく遊びましょう！',
+        image:'img/やらないか.jpg', caption:'',
+        choices:['アサーティブ','ノンアサーティブ','アグレッシブ', 'カキストクラシー','メイテオテクニ','コンポテイション'], answerText:'コンポテイション',
+        comment:'精神科におれば毎日がコンポテイション（Compotation:一緒に酒を飲んだり騒いだりすること）！？\n今日は来てくれてありがとう！\nちなみにカキストクラシー(Kakisutocracy)は最悪の市民による政治\nメイテオテクニ(Mataeotechny)は無益な、利便性のない科学、技能のこと。\n精神医学のことじゃないですよ！' }
+
+
+    ];
+
+    // ========= 状態 =========
+    let idx = 0;
+    let players = []; // [{name, score}]
+    let picks = new Map(); // name -> index
+    let lockedReveal = false;
+
+    // ========= 要素 =========
+    const playarea = document.getElementById('playarea');
+    const progressBar = document.getElementById('progressBar');
+    const counter = document.getElementById('counter');
+    const scoreNow = document.getElementById('scoreNow');
+    const qText = document.getElementById('qText');
+    const mediaWrap = document.getElementById('mediaWrap');
+    const memeImg = document.getElementById('memeImg');
+    const memeCaption = document.getElementById('memeCaption');
+    const playersGrid = document.getElementById('playersGrid');
+    const revealBtn = document.getElementById('revealBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const startPanel = document.getElementById('startPanel');
+    const addBtn = document.getElementById('addBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const startBtn = document.getElementById('startBtn');
+    const nameInput = document.getElementById('nameInput');
+    const chips = document.getElementById('chips');
+    const scoreBoard = document.getElementById('scoreBoard');
+    const finalRank = document.getElementById('finalRank');
+    const commentBox = document.getElementById('commentBox'); // ← 追加
+
+    function toYouTubeEmbed(url){
+      if(!url) return null;
+      try{
+        const u = new URL(url);
+        // youtu.be/<id>
+        if(u.hostname === 'youtu.be'){
+          return `https://www.youtube.com/embed/${u.pathname.slice(1)}`;
+        }
+        // www.youtube.com/watch?v=<id>
+        if(u.hostname.endsWith('youtube.com')){
+          const id = u.searchParams.get('v');
+          if(id) return `https://www.youtube.com/embed/${id}`;
+          // /embed/<id> が直接来た時はそのまま
+          if(u.pathname.startsWith('/embed/')) return url;
+        }
+      }catch(e){}
+      return null;
+    }
+    function isVideoFile(url){
+      return typeof url === 'string' && /\.(mp4|webm|ogg)(\?.*)?$/i.test(url);
+    }
+
+
+    // ========= 参加者管理 =========
+    let pending = []; // 名前の配列
+    let composing = false; // IME 中フラグ
+
+    function renderChips(){
+      chips.innerHTML = pending.map((n,i)=>`<span class="chip">${n}<button data-i="${i}" title="削除">×</button></span>`).join('');
+      chips.querySelectorAll('button').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const i = Number(btn.dataset.i);
+          pending.splice(i,1);
+          renderChips();
+          updateStartEnabled();
+        });
+      });
+      updateStartEnabled();
+    }
+    function updateStartEnabled(){ startBtn.disabled = pending.length===0; }
+
+    function addParticipant(){
+      const name = (nameInput.value||'').trim();
+      if(!name) return;
+      if(pending.includes(name)) { nameInput.value=''; nameInput.focus(); return; }
+      pending.push(name);
+      nameInput.value='';
+      renderChips();
+      nameInput.focus();
+    }
+
+    // ========= 進行系 =========
+    function updateProgress(){
+      const frac = (idx)/(QUESTIONS.length);
+      progressBar.style.width = `${Math.round(frac*100)}%`;
+      counter.textContent = `${Math.min(idx+1, QUESTIONS.length)} / ${QUESTIONS.length}`;
+    }
+
+    function renderScore(){
+      scoreBoard.innerHTML = players.map(p=>`<div>${p.name}<br><strong>${p.score}</strong> 点</div>`).join('');
+      const total = players.reduce((a,b)=>a+b.score,0);
+      scoreNow.textContent = total;
+    }
+
+    function renderQuestion(){
+      lockedReveal = false; revealBtn.disabled = true; nextBtn.disabled = true;
+      picks = new Map();
+      qText.style.display = 'block';
+      playersGrid.style.display = 'grid';
+      finalRank.style.display = 'none';
+
+      // 毎問コメントはリセット（コメント機能を使っている場合）
+      if (typeof commentBox !== 'undefined') {
+        commentBox.style.display = 'none';
+        commentBox.textContent = '';
+      }
+
+      const q = QUESTIONS[idx];
+      qText.innerHTML = q.text.replaceAll('\n','<br>');
+
+      // --- メディア表示（動画優先 → 画像） ---
+      function resetMedia(){
+        mediaWrap.style.display = 'none';
+        memeImg.style.display = 'none';
+        ytWrap.style.display = 'none';
+        vidWrap.style.display = 'none';
+        memeCaption.textContent = '';
+
+        // 再生停止・リソース解放
+        ytFrame.src = '';
+        html5Video.pause();
+        html5Video.removeAttribute('src');
+        html5Video.load();
+      }
+      resetMedia();
+
+      let showed = false;
+      if(q.video){
+        const yt = toYouTubeEmbed(q.video);
+        if(yt){
+          ytFrame.src = yt;             // 自動再生はしない設計
+          ytWrap.style.display = 'block';
+          showed = true;
+        }else if(isVideoFile(q.video)){
+          html5Video.src = q.video;
+          vidWrap.style.display = 'block';
+          showed = true;
+        }else{
+        // 未対応URLはリンク表示
+          memeCaption.innerHTML = `動画リンク: <a href="${q.video}" target="_blank" rel="noopener">こちら</a>`;
+          showed = true;
+        }
+      }
+      if(!showed && q.image){
+        memeImg.src = q.image; memeImg.alt = q.text;
+        memeImg.style.display = 'block';
+        showed = true;
+      }
+      if(showed){
+        mediaWrap.style.display = 'block';
+        memeCaption.textContent = (q.caption || '');
+      }
+
+    // --- 解答グリッド ---
+    playersGrid.innerHTML = '';
+    players.forEach(p=>{
+      const card = document.createElement('div');
+      card.className = 'player';
+      card.innerHTML = `<h4>${p.name}</h4>`;
+      const grid = document.createElement('div');
+      grid.className = 'choices';
+      (q.choices||[]).forEach((label, j)=>{
+        const btn = document.createElement('button');
+        btn.className = 'choice';
+        btn.textContent = label;
+        btn.addEventListener('click', ()=>{
+          [...grid.querySelectorAll('.choice')].forEach(b=>b.classList.remove('selected'));
+          btn.classList.add('selected'); picks.set(p.name, j); checkAllPicked();
+        });
+        grid.appendChild(btn);
+      });
+      card.appendChild(grid); playersGrid.appendChild(card);
+    });
+
+    updateProgress();
+  }
+
+
+    function checkAllPicked(){ if(players.every(p => picks.has(p.name))) revealBtn.disabled = false; }
+
+    function findAnswerIndex(q){
+      if(typeof q.answerIndex === 'number') return q.answerIndex;
+      if(typeof q.answerText === 'string') return (q.choices||[]).findIndex(c=>c===q.answerText);
+      return -1;
+    }
+
+    function reveal(){
+      if(lockedReveal) return; lockedReveal = true;
+      const q = QUESTIONS[idx];
+      const ansIdx = findAnswerIndex(q);
+
+      [...playersGrid.children].forEach(card=>{
+        const name = card.querySelector('h4').textContent;
+        const sel = picks.get(name);
+        const buttons = [...card.querySelectorAll('.choice')];
+        buttons.forEach((b, i)=>{ b.classList.remove('selected'); if(i===ansIdx) b.classList.add('correct'); });
+        if(sel !== undefined && sel !== null){
+          if(sel === ansIdx){ buttons[sel]?.classList.add('correct'); const p = players.find(x=>x.name===name); if(p) p.score += 1; }
+          else{ if(sel>=0) buttons[sel]?.classList.add('wrong'); }
+        }
+      });
+      renderScore(); nextBtn.disabled = false; revealBtn.disabled = true;
+
+      // ← 追加：コメント表示
+      if(typeof q.comment === 'string' && q.comment.trim().length){
+        commentBox.innerHTML = `<span class="label">解説</span>${q.comment.replaceAll('\n','<br>')}`;
+        commentBox.style.display = 'block';
+      }
+    }
+
+    function next(){ idx++; if(idx >= QUESTIONS.length){ showFinal(); } else { renderQuestion(); } }
+
+    function showFinal(){
+      qText.innerHTML = 'おつかれさま！最終結果はこちら。';
+      mediaWrap.style.display = 'none'; playersGrid.style.display = 'none'; nextBtn.disabled = true; revealBtn.disabled = true;
+      commentBox.style.display = 'none'; commentBox.textContent = ''; // 最終画面ではコメント非表示
+      const sorted = [...players].sort((a,b)=> b.score - a.score);
+      const rows = sorted.map((p,i)=>`<tr><td>${i+1}</td><td>${p.name}</td><td>${p.score}</td></tr>`).join('');
+      finalRank.innerHTML = `<table><thead><tr><th>順位</th><th>名前</th><th>得点</th></tr></thead><tbody>${rows}</tbody></table>`;
+      finalRank.style.display = 'block';
+    }
+
+    function reset(){
+      idx = 0; picks = new Map(); lockedReveal=false; players = []; pending = [];
+      startPanel.style.display = 'block'; qText.style.display = 'none'; playersGrid.style.display = 'none'; mediaWrap.style.display = 'none';
+      counter.textContent = '-'; progressBar.style.width = '0%'; scoreBoard.innerHTML = ''; scoreNow.textContent = '0'; finalRank.style.display = 'none';
+      commentBox.style.display = 'none'; commentBox.textContent = '';
+      renderChips();
+    }
+
+    function start(){
+      if(pending.length===0) return;
+      players = pending.map(name=>({name, score:0}));
+      renderScore(); startPanel.style.display = 'none'; renderQuestion();
+    }
+
+    // ========= イベント =========
+    addBtn.addEventListener('click', addParticipant);
+    clearBtn.addEventListener('click', ()=>{ pending = []; renderChips(); nameInput.focus(); });
+    startBtn.addEventListener('click', start);
+
+    // IME 変換中は Enter を無視、確定後の Enter でも開始しない（追加のみ）
+    nameInput.addEventListener('compositionstart', ()=>{ composing = true; });
+    nameInput.addEventListener('compositionend', ()=>{ composing = false; });
+    nameInput.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){
+        if(composing){ return; } // 変換確定はスルー
+        e.preventDefault(); addParticipant();
+      }
+    });
+
+    document.getElementById('revealBtn').addEventListener('click', reveal);
+    document.getElementById('nextBtn').addEventListener('click', next);
+    document.getElementById('resetBtn').addEventListener('click', reset);
+
+    // 初期
+    reset();
+  </script>
+</body>
+</html>
