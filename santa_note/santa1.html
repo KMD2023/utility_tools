@@ -38,6 +38,15 @@
   margin-top: 20px;
 }
 
+#noResultMsg {
+  margin-top: 60px;
+  text-align: center;      /* 横中央揃え */
+  color: white;            /* 文字を白に */
+  font-size: 2.5em;        /* 大きくする（調整可） */
+  font-family: 'M PLUS Rounded 1c', sans-serif;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.6); /* 背景が明るくても読める */
+}
+
 </style>
 </head>
 <body>
@@ -65,7 +74,7 @@
     </div>
   </div>
   
-  <p id="noResultMsg" style="margin-top:20px; font-size:18px; color:#555;"></p>
+  <p id="noResultMsg"></p>
   
   <script>
   const childrenDB = [
