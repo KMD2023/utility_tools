@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700&display=swap">
+
+<title>🎅 サンタの検索おもちゃ</title>
+<style>
+ h2 {
+   text-align: center;
+ }
+ body { 
+  font-family: "font_1_kokugl_1.15_rls","meiryo",sans-serif; 
+  background-image: url("世界地図.PNG");   /* ← ここに画像URL */
+  background-size: cover;              /* 画面いっぱいに拡大 */
+  background-position: center;         /* 中央寄せ */
+  background-repeat: no-repeat;        /* 繰り返さない */
+  padding:20px; 
+}
+ .card { background:white; border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.1); margin-top:20px; display:none; }
+ img { width:300px; height:300px; border-radius:8px; object-fit:cover; }
+ .row {
+  display: flex;
+  flex-direction: column;   /* 縦並び */
+  align-items: center;      /* 横方向中央 */
+  text-align: center;       /* 文字中央 */
+  gap: 8px;
+}
+
+ input { padding:10px; width:60%; border-radius:6px; border:1px solid #ccc; }
+ button { padding:10px 16px; border-radius:6px; border:none; background:#d32f2f; color:white; cursor:pointer; }
+ .search-area {
+  display: flex;
+  justify-content: center;   /* 横方向中央 */
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+</style>
+</head>
+<body>
+
+<!-- <h2 style="text-align:center; font-size:2.5em;">🎅 サンタの名前検索</h2> -->
+<!-- <h2 style="text-align:center; font-size:3em; font-family:'M PLUS Rounded 1c', sans-serif;">🎅 サンタの検索帳（日本人用）</h2> -->
+
+
+<img src="バナー.PNG" alt="top illustration" style="width:100%; height:auto; display:block;">
+
+<div class="search-area">
+  <input id="searchBox" placeholder="漢字">
+  <input id="searchYomi" placeholder="よみがな">
+  <button onclick="searchChild()">検索</button>
+</div>
+
+<div id="resultCard" class="card">
+    <div class="row">
+      <img id="childPhoto" src="placeholder.png" alt="顔写真">
+      <div>
+        <h2 id="childName">ここに名前</h2>
+        <h3 id="childYomi">（ここに読み）</h3>
+        <h3 id="childAddress">ここに住所</h3>
+      </div>
+    </div>
+  </div>
+  
+  <p id="noResultMsg" style="margin-top:20px; font-size:18px; color:#555;"></p>
+  
+  <script>
+  const childrenDB = [
+  ];
+  
+function searchChild() {
+  const nameQuery = document.getElementById("searchBox").value.trim();
+  const yomiQuery = document.getElementById("searchYomi").value.trim();
+
+  const card = document.getElementById("resultCard");
+  const noMsg = document.getElementById("noResultMsg");
+
+  if (!nameQuery || !yomiQuery) {
+    card.style.display = "none";
+    noMsg.textContent = "🎅 名前とよみがなの両方を入力してください";
+    return;
+  }
+
+  const child = childrenDB.find(
+    c => c.name === nameQuery && c.yomi === yomiQuery
+  );
+
+  if (child) {
+    document.getElementById("childName").textContent = child.name;
+    document.getElementById("childYomi").textContent = "（" + child.yomi + "）";
+    document.getElementById("childPhoto").src = child.photo;
+    document.getElementById("childAddress").textContent = child.address;
+    card.style.display = "block";
+    noMsg.textContent = "";
+  } else {
+    card.style.display = "none";
+    noMsg.textContent = "🎄 まだまだこの世界に誕生していないようです…";
+  }
+}
+
+  </script>
+  
+
+</body>
+</html>
