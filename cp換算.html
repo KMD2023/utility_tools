@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CP換算ツール</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --ink:#1d2330; --muted:#667085; --line:#e3e6eb;
+    --accent:#2f6fde; --accent-soft:#e8f0fd; --warn:#b42318; --warn-soft:#fdecea;
+    --caution:#9a6700; --caution-soft:#fff6db; --ok:#067647;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14161b; --card:#1d2027; --ink:#e7e9ee; --muted:#9aa3b2; --line:#2e333d;
+      --accent:#6ea0ff; --accent-soft:#1f2a40; --warn:#ff8a80; --warn-soft:#3a1f1f;
+      --caution:#f0c25a; --caution-soft:#3a3120; --ok:#5fd39a;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    font-size:15px;line-height:1.6}
+  .wrap{max-width:960px;margin:0 auto;padding:24px 16px 60px}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+  .card h2{font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+  .card h2 .num{background:var(--accent);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+  .addrow{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:12px;color:var(--muted)}
+  input,select{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+  .ac{position:relative;flex:1 1 300px}
+  .ac input{width:100%}
+  .sugg{position:absolute;z-index:10;left:0;right:0;top:100%;margin-top:4px;background:var(--card);border:1px solid var(--line);
+    border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.15);max-height:300px;overflow:auto;display:none}
+  .sugg div{padding:7px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:10px}
+  .sugg div small{color:var(--muted)}
+  .sugg div.on{background:var(--accent-soft)}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .dose input{width:110px}
+  button{font:inherit;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.big{padding:11px 22px;font-size:16px}
+  button.del{color:var(--warn);padding:5px 10px;white-space:nowrap}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:8px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{font-size:12px;color:var(--muted);font-weight:600}
+  td.r,th.r{text-align:right}
+  .rp-dose{width:100px}
+  .rp-drug{max-width:260px}
+  .empty{color:var(--muted);text-align:center;padding:18px}
+  .total{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:14px 0 4px}
+  .total .v{font-size:34px;font-weight:700;color:var(--accent)}
+  .total .u{color:var(--muted)}
+  .badge{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;font-weight:600}
+  .badge.warn{background:var(--warn-soft);color:var(--warn)}
+  .badge.cau{background:var(--caution-soft);color:var(--caution)}
+  .badge.ok{background:var(--accent-soft);color:var(--accent)}
+  .msg{border-radius:8px;padding:8px 12px;margin-top:8px;font-size:13px}
+  .msg.warn{background:var(--warn-soft);color:var(--warn)}
+  .msg.cau{background:var(--caution-soft);color:var(--caution)}
+  .hl{font-size:13px;color:var(--muted)}
+  .stale{opacity:.45}
+  .drugnote{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+  .drugnote h3{margin:0 0 6px;font-size:15px}
+  .drugnote h4{margin:8px 0 2px;font-size:13px}
+  .drugnote h4.k{color:var(--warn)}
+  .drugnote h4.w{color:var(--caution)}
+  .drugnote ul{margin:2px 0 4px;padding-left:20px}
+  .drugnote li{margin:1px 0}
+  .muted{color:var(--muted)}
+  .foot{font-size:12px;color:var(--muted);margin-top:24px}
+  .toggle{margin-top:8px;font-size:13px}
+  .unit{font-size:12px;color:var(--muted);margin-left:4px}
+  .rp-weeks{width:56px}
+  .rp-hl{font-size:12px;margin-top:3px;line-height:1.4}
+  .rp-dose{width:80px}
+  .nowrap{white-space:nowrap}
+  .tag{font-size:11px;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:0 5px;margin-left:4px}
+  details.meta{margin:-12px 0 18px;font-size:12px;color:var(--muted)}
+  details.meta summary,details.src summary,details.more summary{cursor:pointer;color:var(--muted);list-style:none}
+  details summary::-webkit-details-marker{display:none}
+  details.meta summary::before,details.more summary::before{content:"▸ ";}
+  details[open].meta summary::before,details[open].more summary::before{content:"▾ ";}
+  .metabody{margin-top:8px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);max-height:320px;overflow:auto}
+  .metabody p{margin:0 0 8px}
+  table.srct th,table.srct td{padding:4px 6px;font-size:12px}
+  .nh{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  details.src{font-size:12px;flex:0 0 auto;text-align:right}
+  details.src summary{border:1px solid var(--line);border-radius:999px;padding:0 8px}
+  details.src > div{margin-top:4px;text-align:left;color:var(--muted);max-width:420px}
+  details.more{margin-top:14px;font-size:14px}
+  details.more summary{font-size:13px}
+  details.more table{margin-top:8px}
+  ul.sae{columns:2;column-gap:24px}
+  ul.sae li{break-inside:avoid}
+  @media (max-width:600px){ ul.sae{columns:1} }
+  details.inter{margin-top:8px;font-size:13px}
+  details.inter summary{cursor:pointer;font-weight:600;list-style:none}
+  details.inter summary::before{content:"▸ ";color:var(--muted)}
+  details[open].inter summary::before{content:"▾ ";}
+  details.inter table{margin-top:6px}
+  details.inter td{font-size:12px;vertical-align:top;padding:5px 6px}
+  details.inter td:first-child{width:38%}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
+  .chip{display:inline-flex;align-items:center;gap:4px;background:var(--accent-soft);color:var(--ink);border-radius:999px;padding:2px 4px 2px 10px;font-size:13px}
+  .chip small{color:var(--muted)}
+  .chip button{border:none;background:none;padding:0 6px;color:var(--muted);font-size:14px}
+  .cmblock{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:10px}
+  .cmhead{margin-bottom:4px}
+  .cmblock td{font-size:13px;vertical-align:top;padding:6px}
+  .cmblock tr.contra td{background:var(--warn-soft)}
+  .cmblock td:nth-child(2){width:30%;min-width:130px}
+  .cmblock td:first-child{width:44px}
+  @media (max-width:600px){ .rp-drug{max-width:150px} th,td{padding:6px 4px} }
+  @media print{ .addcard,button{display:none!important} body{background:#fff} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CP換算ツール（抗精神病薬）</h1>
+  <p class="sub">クロルプロマジン（CP）換算値 ― 稲垣・稲田の等価換算表（CP 100mg 相当量）に基づく。経口剤・内用液・貼付剤・持効性注射剤・速効性注射剤に対応。</p>
+  <details class="meta"><summary id="metaSum">データの出典・照合日：添付文書 2026年11月9日 時点</summary>
+    <div class="metabody">
+      <p>警告・禁忌・用量・半減期は、2026年11月9日に JAPIC／KEGG MEDICUS 掲載の添付文書（PMDA掲載の電子添文と同内容。チミペロンのみPMDA掲載PDF）と照合しました。CP換算値は稲垣・稲田の等価換算表（日本精神薬学会 掲載版：経口・貼付剤／持効性注射剤／速効性注射剤）によります。照合の詳細は同じフォルダの「添付文書照合記録.md」にあります。</p>
+      <div id="srcTable"></div>
+    </div>
+  </details>
+
+  <div class="card addcard">
+    <h2><span class="num">1</span>Rpを追加</h2>
+    <div class="addrow">
+      <div class="field ac">
+        <label for="drugInput">薬剤名（一般名・商品名・英名）</label>
+        <input id="drugInput" type="text" autocomplete="off" placeholder="例：ジプレ / オランザ / リスパ">
+        <div id="sugg" class="sugg"></div>
+      </div>
+      <div class="field dose">
+        <label for="doseInput" id="doseLabel">1日量 (mg)</label>
+        <input id="doseInput" type="number" min="0" step="any" placeholder="mg/日">
+      </div>
+      <div class="field dose" id="weeksField" style="display:none">
+        <label for="weeksInput">投与間隔 (週)</label>
+        <input id="weeksInput" type="number" min="0" step="any">
+      </div>
+      <button id="addBtn" class="primary">＋ Rp追加</button>
+    </div>
+    <div class="hint">3文字入力で候補を表示 → <b>Tab</b>（または ↑↓ / Enter / クリック）で選択 → 量を入力して Enter または「Rp追加」<br>内用液は mL、持効性注射剤は1回量（mg）と投与間隔（週）、速効性注射剤は1日の合計量で入力します。</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span>処方（Rp）</h2>
+    <table>
+      <thead><tr><th>Rp</th><th>薬剤</th><th class="r">投与量</th><th class="r nowrap">CP換算<br><span style="font-weight:400">(mg/日)</span></th><th></th></tr></thead>
+      <tbody id="rpBody"></tbody>
+    </table>
+    <div style="margin-top:14px"><button id="calcBtn" class="primary big">CP値を計算</button></div>
+    <div id="result"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">3</span>このCP値に相当する各薬剤の1日量</h2>
+    <div id="equiv"><p class="muted">「CP値を計算」を押すと表示されます。</p></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">4</span>Rp薬剤の注意事項・禁忌（添付文書より要約）</h2>
+    <div id="notes"><p class="muted">「CP値を計算」を押すと表示されます。</p></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">5</span>併用薬チェック（現行Rpとの相互作用）</h2>
+    <div class="addrow">
+      <div class="field ac">
+        <label for="cmInput">併用薬（一般名・商品名）</label>
+        <input id="cmInput" type="text" autocomplete="off" placeholder="例：パキシル / クラリス / リーマス">
+        <div id="cmSugg" class="sugg"></div>
+      </div>
+    </div>
+    <div class="hint">3文字入力で候補 → Tab で追加。辞書にない薬剤は名前を入れて Enter（名称のみで照合）。Rpの各薬剤の添付文書（10.1 併用禁忌・10.2 併用注意）と照合します。</div>
+    <div id="cmChips" class="chips"></div>
+    <div id="cmResult"></div>
+    <p class="muted" style="font-size:12px;margin:10px 0 0">「名称一致」は添付文書の薬剤名等の欄に、その薬剤名（または商品名）が書かれているもの。「分類一致」は、添付文書の分類（CYP3A4阻害剤、中枢神経抑制剤など）に本ツールの辞書で該当させたもので、参考です。該当なしでも相互作用がないとは限りません。</p>
+  </div>
+
+  <p class="foot">
+    ※ 換算値（CP100相当量）は稲垣・稲田の換算表に基づく臨床的な目安で、添付文書の記載事項ではありません。<br>
+    ※ 警告・禁忌はほぼ原文どおり、重大な副作用（11.1）と併用注意（10.2）は添付文書から全項目を抽出しています。「主な注意点」は抜粋・要約で、網羅ではありません。その他の副作用（11.2）は載せていません。出典と照合日はページ上部の「データの出典・照合日」と、各薬剤の「出典」から確認できます。<br>
+    ※ レボメプロマジン注・チミペロン注は現行製品が見つからないため収載していません。<br>
+    ※ ピモジド・カルピプラミン・オキシペルチンはPMDAに現行製品の掲載がなく、照合できていません。<br>
+    ※ 改訂により内容が変わるため、処方時は必ず最新の添付文書（PMDA）を確認してください。<br>
+    ※ 本ツールは医療従事者の判断を補助する目的で作成したものです。
+  </p>
+</div>
+
+<script src="pi_data.js"></script>
+<script>
+// ===== 添付文書の禁忌文言（共通部品・原文準拠） =====
+const C_COMA = "昏睡状態の患者";
+const C_CNS = "バルビツール酸誘導体等の中枢神経抑制剤の強い影響下にある患者";
+const C_CNS2 = "バルビツール酸誘導体・麻酔剤等の中枢神経抑制剤の強い影響下にある患者";
+const C_ADR = "アドレナリンを投与中の患者（アドレナリンをアナフィラキシーの救急治療、又は歯科領域における浸潤麻酔もしくは伝達麻酔に使用する場合を除く）";
+const C_HYP = "本剤の成分に対し過敏症の既往歴のある患者";
+const C_COMA_CV = "昏睡状態、循環虚脱状態の患者";
+const C_PHENO = "フェノチアジン系化合物及びその類似化合物に対し過敏症の患者";
+const C_HF = "重症の心不全患者";
+const C_PD = "パーキンソン病又はレビー小体型認知症の患者";
+const C_BUTY = "本剤の成分又はブチロフェノン系化合物に対し過敏症の既往歴のある患者";
+const C_PREG = "<b>妊婦又は妊娠している可能性のある女性</b>";
+const C_DM = "<b>糖尿病の患者、糖尿病の既往歴のある患者</b>";
+const C_PRL = "プロラクチン分泌性の下垂体腫瘍（プロラクチノーマ）の患者";
+const PHENO_SET = [C_COMA_CV, C_CNS2, C_ADR, C_PHENO];
+const W_DM = "著しい血糖値の上昇から、糖尿病性ケトアシドーシス、糖尿病性昏睡等の重大な副作用が発現し、死亡に至る場合があるので、本剤投与中は、血糖値の測定等の観察を十分に行うこと。";
+const W_DM_EXPLAIN = "投与にあたっては、あらかじめ上記副作用が発現する場合があることを患者及びその家族に十分に説明し、口渇、多飲、多尿、頻尿等の異常に注意し、このような症状があらわれた場合には、直ちに投与を中断し、医師の診察を受けるよう指導すること。";
+
+// ===== 薬剤データ =====
+// eq: CP100mg等価量(mg)（稲垣・稲田の換算表。添付文書の記載事項ではない）
+// max: 1日量の上限(mg)（統合失調症の用量） / maxType: "max"=添付文書に上限が明記 / "usual"=通常用量の上限（明記された上限なし）
+// hl: 添付文書「16. 薬物動態」の半減期 / rev: 照合した添付文書の改訂版 / pi: 照合した製品
+// verified: false → 現在PMDAに掲載製品がなく照合不可
+const DRUGS = [
+  {id:"olz", name:"オランザピン", brands:["ジプレキサ","ジプレキサザイディス"], en:"olanzapine", eq:2.5, max:20, maxType:"max", order:1, cls:"MARTA",
+   pi:"ジプレキサザイディス錠", rev:"2026年8月改訂（第4版）", verified:true,
+   hl:"約31時間（日本人健康成人 5mg単回）／外国人 平均33時間（高齢者で延長）",
+   kinki:[C_COMA, C_CNS, C_HYP, C_ADR, C_DM+"（統合失調症・双極性障害の効能）"],
+   keikoku:[W_DM, W_DM_EXPLAIN],
+   chui:["低血糖があらわれることもある（脱力感・倦怠感・冷汗・振戦・傾眠・意識障害等に注意）","体重増加に注意","喫煙（CYP1A2誘導）で血中濃度低下、フルボキサミン併用で上昇","尿閉、麻痺性イレウス、閉塞隅角緑内障のある患者：抗コリン作用により悪化することがある","起立性低血圧"]},
+  {id:"ris", name:"リスペリドン", brands:["リスパダール","リスパダールOD"], en:"risperidone", eq:1, max:12, maxType:"max", order:2, cls:"SDA",
+   pi:"リスパダール錠・OD錠・細粒", rev:"2025年5月改訂（第5版）", verified:true,
+   hl:"未変化体 約3時間／主代謝物（9-ヒドロキシリスペリドン＝パリペリドン）約21〜22時間",
+   kinki:[C_COMA, C_CNS, C_ADR, "本剤の成分及びパリペリドンに対し過敏症の既往歴のある患者"],
+   keikoku:[],
+   chui:["高プロラクチン血症","錐体外路症状","起立性低血圧","腎機能障害で半減期延長・AUC増大（中等度で約2.7倍）→ 低用量から慎重に","パリペリドン（インヴェガ）との併用は避ける（インヴェガ添付文書 7.2）"]},
+  {id:"ari", name:"アリピプラゾール", brands:["エビリファイ","エビリファイOD"], en:"aripiprazole", eq:4, max:30, maxType:"max", order:3, cls:"DSS",
+   pi:"エビリファイ錠・OD錠・散・内用液", rev:"2025年12月改訂（第6版）", verified:true,
+   hl:"約61時間（単回）、反復投与後 約65時間／活性代謝物 約110時間（反復）",
+   kinki:[C_COMA, C_CNS2, C_ADR, C_HYP],
+   keikoku:["糖尿病性ケトアシドーシス、糖尿病性昏睡等の死亡に至ることもある重大な副作用が発現するおそれがあるので、本剤投与中は高血糖の徴候・症状に注意すること。特に、糖尿病又はその既往歴もしくはその危険因子を有する患者には、治療上の有益性が危険性を上回ると判断される場合のみ投与し、血糖値の測定等の観察を十分に行うこと。", "患者及びその家族に上記副作用について十分に説明し、口渇、多飲、多尿、頻尿、多食、脱力感等の異常に注意し、症状があらわれた場合には直ちに投与を中断し医師の診察を受けるよう指導すること。"],
+   chui:["アカシジア","CYP2D6阻害剤（パロキセチン等）・CYP3A4阻害剤との併用時は減量を考慮（添付文書 7. 参照）","病的賭博、病的性欲亢進、強迫性購買、暴食等の衝動制御障害","定常状態到達まで約2週間"]},
+  {id:"brx", name:"ブレクスピプラゾール", brands:["レキサルティ","レキサルティOD"], en:"brexpiprazole", eq:0.5, max:2, maxType:"usual", order:4, cls:"SDAM",
+   pi:"レキサルティ錠・OD錠", rev:"2024年9月改訂（第5版）", verified:true,
+   hl:"約53〜67時間（単回）、反復投与後 約71〜92時間",
+   kinki:[C_COMA, C_CNS2, C_ADR, C_HYP],
+   keikoku:[],
+   chui:["統合失調症の用量は1日1回2mg（1mgから開始し4日以上あけて増量）。1日4mgを超える用量での安全性は確立していない","中程度以上のCYP2D6阻害剤（キニジン、パロキセチン等）・CYP3A阻害剤（イトラコナゾール、クラリスロマイシン等）との併用、CYP2D6活性欠損では用量調節（添付文書 7.2 の表）","アカシジア","体重増加、高血糖"]},
+  {id:"que", name:"クエチアピン", brands:["セロクエル"], en:"quetiapine", eq:66, max:750, maxType:"max", order:5, cls:"MARTA",
+   pi:"セロクエル錠・細粒", rev:"2026年9月改訂（第6版）", verified:true,
+   hl:"約3.5時間（統合失調症患者 反復投与）",
+   kinki:[C_COMA, C_CNS, C_ADR, C_HYP, C_DM],
+   keikoku:[W_DM, W_DM_EXPLAIN],
+   chui:["起立性低血圧","CYP3A4阻害剤で血中濃度上昇、誘導剤（フェニトイン、カルバマゼピン等）で低下","甲状腺関連の検査値異常（T4減少等）、白内障の報告","※ビプレッソ（徐放錠）は別の添付文書のため本ツールの対象外"]},
+  {id:"bln", name:"ブロナンセリン", brands:["ロナセン"], en:"blonanserin", eq:4, max:24, maxType:"max", order:6, cls:"DSA",
+   pi:"ロナセン錠・散", rev:"2026年8月改訂（第12版）", verified:true,
+   hl:"約11〜16時間（健康成人 空腹時単回 4〜12mg）",
+   kinki:[C_COMA, C_CNS, C_ADR, "<b>イトラコナゾール、ボリコナゾール、ミコナゾール（経口剤、口腔用剤、注射剤）、フルコナゾール、ホスフルコナゾール、ポサコナゾール、リトナビルを含む製剤、ダルナビル、アタザナビル、ホスアンプレナビル、エンシトレルビル、コビシスタットを含む製剤、ロナファルニブ、セリチニブを投与中の患者</b>", C_HYP],
+   keikoku:[],
+   chui:["<b>食後投与</b>（食後は空腹時に比べCmax・AUCが約2.7倍）","グレープフルーツジュースで血中濃度上昇","アカシジア等の錐体外路症状","小児の上限は1日16mg","ロナセンテープは本換算の対象外"]},
+  {id:"lur", name:"ルラシドン", brands:["ラツーダ"], en:"lurasidone", eq:10, max:80, maxType:"max", order:7, cls:"SDA",
+   pi:"ラツーダ錠", rev:"2026年8月改訂（第11版）", verified:true,
+   hl:"約22時間（健康成人 食後単回40mg）／空腹時 約16時間",
+   kinki:[C_COMA, C_CNS, "<b>CYP3A4を強く阻害する薬剤（イトラコナゾール、ボリコナゾール、ミコナゾール（経口剤、口腔用剤、注射剤）、フルコナゾール、ホスフルコナゾール、ポサコナゾール、リトナビルを含む製剤、ダルナビル、アタザナビル、ホスアンプレナビル、エンシトレルビル、コビシスタットを含む製剤、クラリスロマイシン、ロナファルニブ、セリチニブ）を投与中の患者</b>", "<b>CYP3A4を強く誘導する薬剤（リファンピシン、フェニトイン、ホスフェニトイン）を投与中の患者</b>", C_HYP, C_ADR],
+   keikoku:[],
+   chui:["<b>食後投与</b>","中等度以上の腎機能障害（CLcr&lt;50）：最高用量60mg（統合失調症）","肝機能障害：Child-Pugh B は最高60mg、C は最高30mg（統合失調症）","アカシジア","双極性障害のうつ症状では1日60mgまで"]},
+  {id:"pal", name:"パリペリドン", brands:["インヴェガ"], en:"paliperidone", eq:1.5, max:12, maxType:"max", order:8, cls:"SDA",
+   pi:"インヴェガ錠", rev:"2024年10月改訂（第3版）", verified:true,
+   hl:"約20〜23時間",
+   kinki:[C_COMA, C_CNS, C_ADR, "本剤の成分及びリスペリドンに対し過敏症の既往歴のある患者", "<b>中等度から重度の腎機能障害患者（クレアチニン・クリアランス50mL/分未満）</b>"],
+   keikoku:[],
+   chui:["<b>リスペリドン経口剤との併用は避ける</b>（本剤はリスペリドンの活性代謝物）","軽度腎機能障害（CrCl 50〜80mL/分）：3mgから開始し、1日6mgを超えない","徐放性製剤：噛んだり、割ったり、砕いたり、溶解したりしない","高プロラクチン血症、QT延長、起立性低血圧"]},
+  {id:"asn", name:"アセナピン", brands:["シクレスト"], en:"asenapine", eq:2.5, max:20, maxType:"max", order:9, cls:"MARTA",
+   pi:"シクレスト舌下錠", rev:"2025年6月改訂（第5版）", verified:true,
+   hl:"約17時間（日本人 5mg単回）／反復投与後 約28〜36時間",
+   kinki:[C_HYP, C_COMA, C_CNS, C_ADR, "<b>重度の肝機能障害（Child-Pugh分類C）のある患者</b>"],
+   keikoku:[],
+   chui:["<b>舌下錠</b>：飲み込まず、水なしで投与し、舌下投与後10分間は飲食を避ける","口の感覚鈍麻","最高用量は1回10mg 1日2回"]},
+  {id:"per", name:"ペロスピロン", brands:["ルーラン"], en:"perospirone", eq:8, max:48, maxType:"max", order:10, cls:"SDA",
+   pi:"ルーラン錠", rev:"2026年8月改訂（第6版）", verified:true,
+   hl:"二相性：α相 1〜3時間、β相 5〜8時間",
+   kinki:[C_COMA, C_CNS, C_HYP, C_ADR],
+   keikoku:[],
+   chui:["1日3回 食後投与","CYP3A4で代謝（阻害剤併用で血中濃度上昇）"]},
+  {id:"clz", name:"クロザピン", brands:["クロザリル"], en:"clozapine", eq:50, max:600, maxType:"max", order:11, cls:"MARTA",
+   pi:"クロザリル錠", rev:"2024年10月改訂（第4版）", verified:true,
+   hl:"約16時間（日本人患者 単回・反復）",
+   kinki:[C_HYP,"CPMSへの患者登録前（4週間以内）の血液検査で、白血球数4,000/mm³未満又は好中球数2,000/mm³未満の患者","<b>CPMSの規定を遵守できない患者</b>","CPMSで定められた血液検査の中止基準により投与を中止し、再投与検討基準に該当しない患者","骨髄機能障害のある患者","骨髄抑制を起こす可能性のある薬剤を投与中、又は放射線療法・化学療法等を行っている患者","<b>持効性抗精神病剤</b>（ハロペリドールデカン酸エステル、フルフェナジンデカン酸エステル、リスペリドン持効性懸濁注射液、パリペリドンパルミチン酸エステル、アリピプラゾール水和物持続性注射剤）<b>を投与中の患者</b>","重度の痙攣性疾患又は治療により十分な管理がされていないてんかん患者","アルコール又は薬物による急性中毒、昏睡状態の患者","循環虚脱状態の患者又は中枢神経抑制状態の患者","重度の心疾患（心筋炎等）のある患者","重度の腎機能障害のある患者","重度の肝機能障害のある患者","麻痺性イレウスの患者","アドレナリン作動薬（アドレナリン、ノルアドレナリン）を投与中の患者（アドレナリンをアナフィラキシーの救急治療、又は歯科領域における浸潤麻酔もしくは伝達麻酔に使用する場合を除く）"],
+   keikoku:["統合失調症の診断・治療に精通し、無顆粒球症、心筋炎、糖尿病性ケトアシドーシス等に十分対応でき、CPMSに登録された医師・薬剤師のいる登録医療機関・薬局において、登録患者に対し、CPMSに定められた基準がすべて満たされた場合にのみ投与すること","投与継続が適切か定期的に判断すること","糖尿病性ケトアシドーシス、糖尿病性昏睡等のおそれ。CPMSに準拠して定期的に血糖値等を測定すること","患者又は代諾者に文書で説明し、文書で同意を得てから投与を開始すること","<b>原則として投与開始後18週間は入院管理下</b>で投与すること"],
+   chui:["けいれん、流涎過多、便秘（麻痺性イレウス）、頻脈、発熱","喫煙で血中濃度低下。フルボキサミン併用でAUC約2.8倍（半減期15.5→28.7時間）","心筋炎・心筋症","初日12.5mg、2日目25mgから開始し漸増"]},
+  {id:"hal", name:"ハロペリドール", brands:["セレネース"], en:"haloperidol", eq:2, max:6, maxType:"usual", order:12, cls:"ブチロフェノン",
+   pi:"セレネース錠・細粒", rev:"2026年7月改訂（第5版）", verified:true,
+   hl:"約52〜83時間（日本人健康成人 1〜1.5mg単回、個人差大）",
+   kinki:[C_COMA, C_CNS, C_HF, C_PD, "本剤の成分又はブチロフェノン系化合物に対し過敏症の患者", C_ADR, C_PREG],
+   keikoku:[],
+   chui:["錐体外路症状（ジストニア、アカシジア等）","QT延長（低カリウム血症等のQT延長を起こしやすい患者で注意）","添付文書に上限の明記なし（維持量 1日3〜6mg）"]},
+  {id:"cpz", name:"クロルプロマジン", brands:["コントミン","ウインタミン"], en:"chlorpromazine", eq:100, max:450, maxType:"usual", order:13, cls:"フェノチアジン",
+   pi:"コントミン糖衣錠", rev:"2025年12月改訂（第4版）", verified:true,
+   hl:"二相性：α相 約2.5時間、β相 約12時間（外国人 50mg単回）",
+   kinki:PHENO_SET,
+   keikoku:[],
+   chui:["精神科領域の通常用量は1日50〜450mg","妊婦又は妊娠している可能性のある女性には投与しないことが望ましい（9.5）","肝機能障害を悪化させるおそれ","光線過敏症、皮膚の色素沈着","口渇等の抗コリン作用、痙攣、QT延長"]},
+  {id:"lev", name:"レボメプロマジン", brands:["ヒルナミン","レボトミン"], en:"levomepromazine", eq:100, max:200, maxType:"usual", order:14, cls:"フェノチアジン",
+   pi:"ヒルナミン錠・散・細粒", rev:"2024年10月改訂（第3版）", verified:true,
+   hl:"15〜30時間（外国人 50mg単回）／活性代謝物スルホキシド 15時間",
+   kinki:PHENO_SET,
+   keikoku:[],
+   chui:["妊婦又は妊娠している可能性のある女性には投与しないことが望ましい（9.5）","起立性低血圧","口渇","QT延長"]},
+  {id:"sul", name:"スルピリド", brands:["ドグマチール","アビリット"], en:"sulpiride", eq:200, max:1200, maxType:"max", order:15, cls:"ベンザミド",
+   pi:"ドグマチール錠・カプセル・細粒", rev:"2025年5月改訂（第6版）", verified:true,
+   hl:"約6〜8時間（健康成人 50・100mg単回）",
+   kinki:[C_HYP, C_PRL, "褐色細胞腫又はパラガングリオーマの疑いのある患者（急激な昇圧発作を起こすおそれ）"],
+   keikoku:[],
+   chui:["統合失調症は1日300〜600mg（1,200mgまで）","高プロラクチン血症（乳汁分泌・女性化乳房等）","腎排泄型（未変化体の尿中排泄）：腎機能障害で注意","QT延長"]},
+  {id:"zot", name:"ゾテピン", brands:["ロドピン"], en:"zotepine", eq:66, max:450, maxType:"max", order:16, cls:"チエピン",
+   pi:"ロドピン錠・細粒", rev:"2026年10月改訂（第6版）", verified:true,
+   hl:"約8時間（統合失調症患者 100mg単回）",
+   kinki:[C_COMA_CV, C_CNS2, C_ADR, "本剤の成分、フェノチアジン系化合物及びその類似化合物に対し過敏症の既往歴のある患者"],
+   keikoku:[],
+   chui:["<b>痙攣</b>（てんかん等の既往に注意）","血清尿酸低下","体重増加","CYP3A4で代謝"]},
+  {id:"brp", name:"ブロムペリドール", brands:["インプロメン"], en:"bromperidol", eq:2, max:36, maxType:"max", order:17, cls:"ブチロフェノン",
+   pi:"ブロムペリドール錠（後発品）", rev:"2024年10月改訂（第2版）", verified:true,
+   hl:"約20〜31時間（健康成人 3mg）",
+   kinki:[C_COMA, C_CNS, C_HF, C_PD, "本剤の成分又はブチロフェノン系化合物に対し過敏症の患者", C_ADR, C_PREG],
+   keikoku:[], chui:["錐体外路症状","QT延長"]},
+  {id:"flu", name:"フルフェナジン", brands:["フルメジン"], en:"fluphenazine", eq:2, max:10, maxType:"usual", order:18, cls:"フェノチアジン",
+   pi:"フルメジン錠・散", rev:"2025年12月改訂（第4版）", verified:true,
+   hl:"添付文書に記載なし", kinki:[C_COMA_CV, C_CNS2, C_ADR, "フェノチアジン系化合物及びその類似化合物に対し過敏症の既往歴のある患者"], keikoku:[], chui:["錐体外路症状","持効性注射剤（デカン酸エステル）は本換算の対象外"]},
+  {id:"pph", name:"ペルフェナジン", brands:["ピーゼットシー","トリラホン"], en:"perphenazine", eq:10, max:48, maxType:"usual", order:19, cls:"フェノチアジン",
+   pi:"ピーゼットシー糖衣錠", rev:"2025年12月改訂（第4版）", verified:true,
+   hl:"添付文書に記載なし", kinki:PHENO_SET, keikoku:[], chui:["精神科領域では1日6〜48mg","CYP2D6で代謝（遺伝的欠損者で血中濃度約2倍の報告）","錐体外路症状"]},
+  {id:"pcp", name:"プロクロルペラジン", brands:["ノバミン"], en:"prochlorperazine", eq:15, max:45, maxType:"usual", order:20, cls:"フェノチアジン",
+   pi:"ノバミン錠", rev:"2025年4月改訂（第4版）", verified:true,
+   hl:"添付文書に記載なし", kinki:PHENO_SET, keikoku:[], chui:["精神科領域では1日15〜45mg","錐体外路症状（高齢者で注意）"]},
+  {id:"ppc", name:"プロペリシアジン", brands:["ニューレプチル"], en:"propericiazine", eq:20, max:60, maxType:"usual", order:21, cls:"フェノチアジン",
+   pi:"ニューレプチル錠・細粒・内服液", rev:"2026年6月改訂（第4版）", verified:true,
+   hl:"添付文書に記載なし", kinki:PHENO_SET, keikoku:[], chui:["起立性低血圧","口渇"]},
+  {id:"tim", name:"チミペロン", brands:["トロペロン"], en:"timiperone", eq:1.3, max:12, maxType:"usual", order:22, cls:"ブチロフェノン",
+   pi:"トロペロン錠・細粒（PMDA掲載PDF）", rev:"2025年12月改訂（第4版）", verified:true,
+   hl:"約5.9時間（統合失調症患者 6mg食後単回、個人差大）",
+   kinki:[C_COMA, "バルビツール酸誘導体等の中枢神経抑制薬の強い影響下にある患者", C_HF, C_PD, C_BUTY, C_ADR, C_PREG],
+   keikoku:[], chui:["1日0.5〜3mgから開始、通常1日3〜12mg","錐体外路症状"]},
+  {id:"spi", name:"スピペロン", brands:["スピロピタン"], en:"spiperone", eq:1, max:4.5, maxType:"usual", order:23, cls:"ブチロフェノン",
+   pi:"スピロピタン錠", rev:"2024年10月改訂（第4版）", verified:true,
+   hl:"添付文書に記載なし", kinki:["昏睡状態の患者又はバルビツール酸誘導体等の中枢神経抑制剤の強い影響下にある患者", C_HF, C_PD, C_BUTY, C_ADR], keikoku:[], chui:["錐体外路症状"]},
+  {id:"pip", name:"ピパンペロン", brands:["プロピタン"], en:"pipamperone", eq:200, max:600, maxType:"usual", order:24, cls:"ブチロフェノン",
+   pi:"プロピタン錠", rev:"2024年10月改訂（第5版）", verified:true,
+   hl:"添付文書に記載なし", kinki:["昏睡状態の患者又はバルビツール酸誘導体等の中枢神経抑制剤の強い影響下にある患者", C_HF, C_PD, C_BUTY, C_ADR], keikoku:[], chui:["心・血管疾患、低血圧の患者で一過性の血圧降下","眠気"]},
+  {id:"slt", name:"スルトプリド", brands:["バルネチール"], en:"sultopride", eq:200, max:1800, maxType:"max", order:25, cls:"ベンザミド",
+   pi:"バルネチール錠・細粒", rev:"2024年10月改訂（第3版）", verified:true,
+   hl:"約3時間（健康成人）",
+   kinki:[C_HYP, C_COMA, C_CNS, C_HF, C_PD, "脳障害（脳炎、脳腫瘍、頭部外傷後遺症等）の疑いのある患者（高熱反応のおそれ）", C_PRL, "<b>QT延長を起こすことが知られている薬剤（イミプラミン、ピモジド等）を投与中の患者</b>"],
+   keikoku:[], chui:["<b>QT延長・心室性不整脈</b>に注意（心電図）","高プロラクチン血症","未変化体として大部分が尿中排泄"]},
+  {id:"tia", name:"チアプリド", brands:["グラマリール"], en:"tiapride", eq:100, max:150, maxType:"usual", order:26, cls:"ベンザミド",
+   pi:"グラマリール錠・細粒", rev:"2025年7月改訂（第4版）", verified:true,
+   hl:"約3.9時間（健康成人 100mg単回）／腎機能低下・高齢者で延長",
+   kinki:[C_PRL],
+   keikoku:[], chui:["効能は脳梗塞後遺症に伴う攻撃的行為・精神興奮・徘徊・せん妄の改善、特発性ジスキネジア及びパーキンソニズムに伴うジスキネジア（統合失調症の適応なし）","主に腎排泄：腎機能障害・高齢者で低用量から","QT延長"]},
+  {id:"nem", name:"ネモナプリド", brands:["エミレース"], en:"nemonapride", eq:4.5, max:60, maxType:"max", order:27, cls:"ベンザミド",
+   pi:"エミレース錠", rev:"2026年10月改訂（第5版）", verified:true,
+   hl:"約2〜5時間（健康成人 3・6mg単回）",
+   kinki:["昏睡状態の患者、又はバルビツール酸誘導体等の中枢神経抑制剤の強い影響下にある患者", C_PD],
+   keikoku:[], chui:["食後に分割投与","錐体外路症状","CYP3A4で代謝"]},
+  {id:"clc", name:"クロカプラミン", brands:["クロフェクトン"], en:"clocapramine", eq:40, max:150, maxType:"usual", order:28, cls:"イミノジベンジル",
+   pi:"クロフェクトン錠・顆粒", rev:"2025年12月改訂（第3版）", verified:true,
+   hl:"約46時間（健康成人 50mg単回）",
+   kinki:[C_COMA_CV, C_CNS2, C_ADR, "本剤の成分又はイミノジベンジル系化合物に対し過敏症の患者"],
+   keikoku:[], chui:["心・血管疾患、低血圧の患者で一過性の血圧降下","口渇"]},
+  {id:"mos", name:"モサプラミン", brands:["クレミン"], en:"mosapramine", eq:33, max:300, maxType:"max", order:29, cls:"イミノジベンジル",
+   pi:"クレミン錠・顆粒", rev:"2025年12月改訂（第4版）", verified:true,
+   hl:"約15時間（健康成人 25mg単回）",
+   kinki:[C_COMA_CV, C_CNS2, C_ADR, C_PD, "本剤の成分又はイミノジベンジル系化合物に対し過敏症の患者", C_PREG],
+   keikoku:[], chui:["錐体外路症状"]},
+  // ---- 以下はPMDAに現行製品の掲載がなく、添付文書と照合できなかった薬剤 ----
+  {id:"pim", name:"ピモジド", brands:["オーラップ"], en:"pimozide", eq:4, max:9, maxType:"usual", order:30, cls:"ジフェニルブチルピペリジン",
+   pi:"—", rev:"—", verified:false,
+   hl:"未照合（参考：約55時間）",
+   kinki:["先天性QT延長症候群、不整脈又はその既往歴のある患者、QT延長を起こしやすい患者","CYP3A4阻害剤（HIVプロテアーゼ阻害剤、アゾール系抗真菌剤、クラリスロマイシン等）を投与中の患者","パロキセチン、フルボキサミン、セルトラリン、エスシタロプラム等を投与中の患者"],
+   keikoku:[], chui:["QT延長・心室性不整脈・突然死の報告"]},
+  {id:"cap", name:"カルピプラミン", brands:["デフェクトン"], en:"carpipramine", eq:100, max:225, maxType:"usual", order:31, cls:"イミノジベンジル",
+   pi:"—", rev:"—", verified:false, hl:"未照合", kinki:[], keikoku:[], chui:[]},
+  {id:"oxy", name:"オキシペルチン", brands:["ホーリット"], en:"oxypertine", eq:80, max:300, maxType:"usual", order:32, cls:"インドール",
+   pi:"—", rev:"—", verified:false, hl:"未照合", kinki:[], keikoku:[], chui:[]}
+];
+const VERIFIED_DATE = "2026年11月9日";
+
+// ===== 経口錠以外の剤形 =====
+// form: "lai"=持効性注射剤 / "patch"=貼付剤 / "inj"=速効性注射剤 / "sol"=内用液（mLで入力）
+// lai: {dose, weeks} = 経口CP100mg/日に相当する量（稲垣・稲田 持効性注射剤表）
+// max（lai は1回量、それ以外は1日量）
+const C_ADR_CLZ = "アドレナリン（アドレナリンをアナフィラキシーの救急治療、又は歯科領域における浸潤麻酔もしくは伝達麻酔に使用する場合を除く）、<b>クロザピンを投与中の患者</b>";
+DRUGS.forEach(d=>{ if(!d.form) d.form="oral"; });
+DRUGS.push(
+  // ---- 持効性注射剤 ----
+  {id:"zep", form:"lai", base:"pal", name:"パリペリドンパルミチン酸エステル（4週）", brands:["ゼプリオン"], en:"paliperidone palmitate", lai:{dose:18.75, weeks:4}, defWeeks:4, max:150, maxType:"max", order:101, cls:"持効性注射剤（SDA）",
+   pi:"ゼプリオン水懸筋注", rev:"2025年12月改訂（第6版）", verified:true,
+   hl:"約25〜49日（外国人 単回）",
+   kinki:[C_COMA, C_CNS, C_ADR_CLZ, "本剤の成分、パリペリドン及びリスペリドンに対し過敏症の既往歴のある患者", "<b>中等度から重度の腎機能障害患者（クレアチニン・クリアランス50mL/分未満）</b>"],
+   keikoku:[],
+   chui:["初回150mg、1週後に100mg（三角筋）、以後4週に1回75mg（25〜150mgで調整、1回の増量は50mgまで）","パリペリドン・リスペリドンの治療経験がない場合は、まず経口剤で反応性・忍容性を確認し、経口剤を併用せずに開始","軽度腎機能障害（CrCl 50〜80）：初回100mg、1週後75mg、以後50mg（25〜100mg）","リスペリドン持効性注射（コンスタ）25mg/2週 → 本剤50mg/4週、50mg/2週 → 100mg/4週（最終投与の2週後から）","持効性製剤のため、投与中止後も副作用の観察を続ける"]},
+  {id:"zeptri", form:"lai", base:"pal", name:"パリペリドンパルミチン酸エステル（12週）", brands:["ゼプリオンTRI"], en:"paliperidone palmitate 3-monthly", lai:{dose:18.75, weeks:4}, defWeeks:12, max:525, maxType:"max", order:102, cls:"持効性注射剤（SDA）",
+   pi:"ゼプリオンTRI水懸筋注", rev:"2025年12月改訂（第6版）", verified:true,
+   hl:"約57〜61日（単回 三角筋）",
+   kinki:[C_COMA, C_CNS, C_ADR_CLZ, "本剤の成分、パリペリドン及びリスペリドンに対し過敏症の既往歴のある患者", "<b>中等度から重度の腎機能障害患者（クレアチニン・クリアランス50mL/分未満）</b>"],
+   keikoku:[],
+   chui:["ゼプリオン（4週）を4か月以上継続し、最後の2回が同用量の患者に、最終投与の4週後から切り替える","用量はゼプリオン最終投与量の3.5倍（50→175、75→263、100→350、150→525mg）。25mgからは切替不可","軽度腎機能障害では350mgを超えない","本剤で用量調節はしない（悪化時・減量時は中止を検討）","※CP換算値はゼプリオンの換算値（18.75mg/4週）を投与間隔で按分したもの（換算表に本剤の記載なし）"]},
+  {id:"rlai", form:"lai", base:"ris", name:"リスペリドン持効性注射（2週）", brands:["リスパダールコンスタ"], en:"risperidone long-acting injection", lai:{dose:10, weeks:2}, defWeeks:2, max:50, maxType:"max", order:103, cls:"持効性注射剤（SDA）",
+   pi:"リスパダールコンスタ筋注用", rev:"2024年10月改訂（第4版）", verified:true,
+   hl:"約4日（反復投与後 約94〜99時間）",
+   kinki:[C_COMA, C_CNS, C_ADR_CLZ, "本剤の成分及びパリペリドンに対し過敏症の既往歴のある患者"],
+   keikoku:[],
+   chui:["1回25mgを2週間隔（1回50mgまで）","投与3週後から血中濃度が上昇するため、初回投与後3週間（増量後も必要に応じ）は経口抗精神病薬を併用","増量は同一用量で4週以上投与後、原則12.5mgずつ"]},
+  {id:"arilai", form:"lai", base:"ari", name:"アリピプラゾール持続性注射（4週）", brands:["エビリファイ持続性水懸筋注"], en:"aripiprazole long-acting injection", lai:{dose:100, weeks:4}, defWeeks:4, max:400, maxType:"max", order:104, cls:"持効性注射剤（DSS）",
+   pi:"エビリファイ持続性水懸筋注用", rev:"2025年11月改訂（第4版）", verified:true,
+   hl:"約13日（300mg単回）／反復投与後 約34日（400mg三角筋）",
+   kinki:[C_COMA, C_CNS2, C_ADR_CLZ, C_HYP],
+   keikoku:["糖尿病性ケトアシドーシス、糖尿病性昏睡等の死亡に至ることもある重大な副作用が発現するおそれがあるので、本剤投与中は高血糖の徴候・症状に注意すること。特に、糖尿病又はその既往歴もしくはその危険因子を有する患者には、治療上の有益性が危険性を上回ると判断される場合のみ投与し、血糖値の測定等の観察を十分に行うこと。","患者及びその家族に上記副作用について十分に説明し、口渇、多飲、多尿、頻尿、多食、脱力感等の異常に注意し、症状があらわれた場合には直ちに医師の診察を受けるよう指導すること。"],
+   chui:["1回400mgを4週に1回（忍容性に応じ300mgに減量）","初回投与後2週間は経口アリピプラゾールを併用（経口6〜15mg→6mg、18〜24mg→12mg、30mg→15mg）","CYP2D6阻害剤・CYP3A4阻害剤併用時は減量（いずれか：400→300mg、両方：400→200mg）"]},
+  {id:"haldec", form:"lai", base:"hal", name:"ハロペリドールデカン酸エステル（4週）", brands:["ハロマンス","ネオペリドール"], en:"haloperidol decanoate", lai:{dose:30, weeks:4}, defWeeks:4, max:150, maxType:"usual", order:105, cls:"持効性注射剤（ブチロフェノン）",
+   pi:"ハロマンス注", rev:"2025年11月改訂（第5版）", verified:true,
+   hl:"約27日（統合失調症患者 100mg単回）",
+   kinki:[C_COMA, C_CNS, C_HF, "パーキンソン病又はレビー小体型認知症のある患者", "本剤の成分又はブチロフェノン系化合物に対し過敏症の患者", C_ADR_CLZ, C_PREG],
+   keikoku:[],
+   chui:["1回50〜150mg（ハロペリドールとして）を4週間隔","初回用量は経口ハロペリドール1日量の10〜15倍を目安に、できるだけ少量から、100mgを超えない"]},
+  {id:"fludec", form:"lai", base:"flu", name:"フルフェナジンデカン酸エステル（4週）", brands:["フルデカシン"], en:"fluphenazine decanoate", lai:{dose:15, weeks:4}, defWeeks:4, max:75, maxType:"usual", order:106, cls:"持効性注射剤（フェノチアジン）",
+   pi:"フルデカシン筋注", rev:"2025年12月改訂（第5版）", verified:true,
+   hl:"添付文書に記載なし",
+   kinki:[C_COMA, C_CNS2, C_HF, C_PD, C_ADR, "フェノチアジン系化合物及びその類似化合物に対し過敏症の既往歴のある患者", C_PREG, "<b>クロザピンを投与中、あるいは投与を検討されている患者</b>"],
+   keikoku:[],
+   chui:["1回12.5〜75mgを4週間隔。初回はできるだけ少量から、50mgを超えない","複数の抗精神病薬を使用している場合は、可能な限り整理してから低用量で開始"]},
+  // ---- 貼付剤 ----
+  {id:"blntape", form:"patch", base:"bln", name:"ブロナンセリン貼付剤", brands:["ロナセンテープ"], en:"blonanserin patch", eq:20, max:80, maxType:"max", order:111, cls:"貼付剤（DSA）",
+   pi:"ロナセンテープ", rev:"2026年6月改訂（第11版）", verified:true,
+   hl:"約42時間（40mg 単回貼付）／反復貼付後 約46時間",
+   kinki:[C_COMA, C_CNS, C_ADR, "<b>イトラコナゾール、ボリコナゾール、ミコナゾール（経口剤、口腔用剤、注射剤）、フルコナゾール、ホスフルコナゾール、ポサコナゾール、リトナビルを含む製剤、ダルナビル、アタザナビル、ホスアンプレナビル、エンシトレルビル、コビシスタットを含む製剤、ロナファルニブ、セリチニブを投与中の患者</b>", C_HYP],
+   keikoku:[],
+   chui:["40mgを1日1回貼付（最大80mg）。胸部・腹部・背部に貼り、24時間ごとに貼り替える","経口ブロナンセリンとの同時期の投与で過量にならないよう注意","初回通過効果を受けないため、CYP3A4阻害剤・誘導剤の影響は経口剤より小さいと考えられる"]},
+  // ---- 内用液（mLで入力） ----
+  {id:"rissol", form:"sol", base:"ris", name:"リスペリドン内用液 1mg/mL", brands:["リスパダール内用液"], en:"risperidone oral solution", mgPerMl:1, eq:1, max:12, maxType:"max", order:121, cls:"内用液（SDA）",
+   pi:"リスパダール内用液", rev:"2024年10月改訂（第4版）", verified:true,
+   hl:"未変化体 約4時間／パリペリドン 約21時間",
+   kinki:[C_COMA, C_CNS, C_ADR, "本剤の成分及びパリペリドンに対し過敏症の既往歴のある患者"],
+   keikoku:[],
+   chui:["パリペリドンを含有する経口製剤との併用は避ける","1日量は12mg（12mL）を超えない"]},
+  {id:"arisol", form:"sol", base:"ari", name:"アリピプラゾール内用液 0.1%（1mg/mL）", brands:["エビリファイ内用液"], en:"aripiprazole oral solution", mgPerMl:1, eq:4, max:30, maxType:"max", order:122, cls:"内用液（DSS）",
+   pi:"エビリファイ内用液", rev:"2025年12月改訂（第5版）", verified:true,
+   hl:"約60時間（単回）、反復投与後 約65時間",
+   kinki:[C_COMA, C_CNS2, C_ADR, C_HYP],
+   keikoku:["糖尿病性ケトアシドーシス、糖尿病性昏睡等の死亡に至ることもある重大な副作用のおそれ。特に、糖尿病又はその既往歴もしくはその危険因子を有する患者には、治療上の有益性が危険性を上回ると判断される場合のみ投与し、血糖値の測定等の観察を十分に行うこと。"],
+   chui:["定常状態まで約2週間。2週間以内の増量は避けることが望ましい"]},
+  {id:"halsol", form:"sol", base:"hal", name:"ハロペリドール内服液 0.2%（2mg/mL）", brands:["セレネース内服液"], en:"haloperidol oral solution", mgPerMl:2, eq:2, max:6, maxType:"usual", order:123, cls:"内用液（ブチロフェノン）",
+   pi:"セレネース内服液", rev:"2025年5月改訂（第4版）", verified:true,
+   hl:"約24時間（外国人 10mg単回）",
+   kinki:[C_COMA, C_CNS, C_HF, C_PD, "本剤の成分又はブチロフェノン系化合物に対し過敏症の患者", C_ADR, C_PREG],
+   keikoku:[], chui:["維持量 1日3〜6mg（1.5〜3mL）"]},
+  {id:"ppcsol", form:"sol", base:"ppc", name:"プロペリシアジン内服液 1%（10mg/mL）", brands:["ニューレプチル内服液"], en:"propericiazine oral solution", mgPerMl:10, eq:20, max:60, maxType:"usual", order:124, cls:"内用液（フェノチアジン）",
+   pi:"ニューレプチル錠・細粒・内服液", rev:"2026年6月改訂（第4版）", verified:true,
+   hl:"添付文書に記載なし", kinki:PHENO_SET, keikoku:[], chui:["通常 1日10〜60mg（1〜6mL）"]},
+  // ---- 速効性注射剤（1日の合計投与量で入力） ----
+  {id:"olzim", form:"inj", base:"olz", name:"オランザピン筋注", brands:["ジプレキサ筋注"], en:"olanzapine IM", eq:2.25, max:20, maxType:"max", order:131, cls:"速効性注射剤（MARTA）",
+   pi:"ジプレキサ筋注用", rev:"2024年11月改訂（第3版）", verified:true,
+   hl:"約42時間（統合失調症患者 10mg単回）",
+   kinki:[C_COMA, C_CNS, C_HYP, C_ADR],
+   keikoku:["著しい血糖値の上昇から、糖尿病性ケトアシドーシス、糖尿病性昏睡等の重大な副作用が発現し、死亡に至る場合があるので、投与前に血糖値の測定等を行い、糖尿病又はその既往のある患者あるいはその危険因子を有する患者には、治療上の有益性が危険性を上回ると判断される場合以外は投与しないこと。"],
+   chui:["1回10mg。追加は前回から2時間以上あけ、追加を含め1日2回まで","経口剤と異なり、糖尿病は禁忌ではなく警告の扱い","3日間を超えて連用した経験はない。経口で管理できれば速やかに終了"]},
+  {id:"halinj", form:"inj", base:"hal", name:"ハロペリドール注", brands:["セレネース注"], en:"haloperidol injection", eq:1, max:10, maxType:"usual", order:132, cls:"速効性注射剤（ブチロフェノン）",
+   pi:"セレネース注", rev:"2025年5月改訂（第4版）", verified:true,
+   hl:"α相 約0.2時間、β相 約14時間（外国人 10mg静注）",
+   kinki:[C_COMA, C_CNS, C_HF, C_PD, "本剤の成分又はブチロフェノン系化合物に対し過敏症の患者", C_ADR, C_PREG],
+   keikoku:[], chui:["急激な精神運動興奮など緊急を要する場合に、1回5mgを1日1〜2回 筋注または静注"]},
+  {id:"cpzim", form:"inj", base:"cpz", name:"クロルプロマジン筋注", brands:["コントミン筋注"], en:"chlorpromazine IM", eq:33, max:null, maxType:"usual", order:133, cls:"速効性注射剤（フェノチアジン）",
+   pi:"コントミン筋注", rev:"2026年3月改訂（第5版）", verified:true,
+   hl:"添付文書に記載なし", kinki:PHENO_SET, keikoku:[], chui:["1回10〜50mgを緩徐に筋注"]},
+  {id:"sulim", form:"inj", base:"sul", name:"スルピリド筋注", brands:["ドグマチール筋注"], en:"sulpiride IM", eq:50, max:600, maxType:"max", order:134, cls:"速効性注射剤（ベンザミド）",
+   pi:"ドグマチール筋注", rev:"2025年5月改訂（第6版）", verified:true,
+   hl:"約6.7時間（外国人 筋注）",
+   kinki:[C_HYP, C_PRL, "褐色細胞腫又はパラガングリオーマの疑いのある患者（急激な昇圧発作を起こすおそれ）"],
+   keikoku:[], chui:["1回100〜200mg 筋注、1日600mgまで"]},
+  {id:"pcpim", form:"inj", base:"pcp", name:"プロクロルペラジン筋注", brands:["ノバミン筋注"], en:"prochlorperazine IM", eq:2.14, max:5, maxType:"usual", order:135, cls:"速効性注射剤（フェノチアジン）",
+   pi:"ノバミン筋注", rev:"2026年3月改訂（第4版）", verified:true,
+   hl:"添付文書に記載なし", kinki:[C_COMA_CV, C_CNS2, C_ADR, C_PHENO], keikoku:[], chui:["1日1回5mgを筋注"]},
+  {id:"pphim", form:"inj", base:"pph", name:"ペルフェナジン筋注", brands:["ピーゼットシー筋注"], en:"perphenazine IM", eq:2, max:null, maxType:"usual", order:136, cls:"速効性注射剤（フェノチアジン）",
+   pi:"ピーゼットシー筋注", rev:"2026年3月改訂（第5版）", verified:true,
+   hl:"添付文書に記載なし", kinki:PHENO_SET, keikoku:[], chui:["1回2〜5mgを筋注"]}
+);
+// ===== 添付文書 10.1 併用禁忌・10.2 併用注意・11.1 重大な副作用（全項目を機械的に抽出） =====
+// pi_data.js（tools/update_check.py が自動生成）から読み込む
+const PI_LISTS = window.PI_LISTS || {};
+const PI_REV = window.PI_REV || {};
+const PI_CHECKED = window.PI_CHECKED || null;
+const revKey = s => ((s||"").match(/\d{4}年\d+月/)||[""])[0] + ((s||"").match(/第\d+版/)||[""])[0];
+// 警告・禁忌等を照合した版（d.rev）と最新版（PI_REV）が違えば true
+const revChanged = d => d.verified && d.id!=="tim" && PI_REV[d.id] && revKey(PI_REV[d.id])!==revKey(d.rev);
+const FORM_LABEL = {oral:"経口", lai:"持効性注射", patch:"貼付剤", inj:"速効性注射", sol:"内用液"};
+
+// 個別の重大な副作用は PI_LISTS を使用
+const COMMON_SERIOUS_UNUSED = "悪性症候群、遅発性ジスキネジア、麻痺性イレウス、抗利尿ホルモン不適合分泌症候群（SIADH）、横紋筋融解症、無顆粒球症・白血球減少、肺塞栓症・深部静脈血栓症、QT延長・心室性不整脈、けいれん、高血糖、肝機能障害 など";
+const COMMON_CAUTION = [
+  "<b>高齢の認知症患者</b>への抗精神病薬投与で死亡率上昇の報告（適応外使用）",
+  "眠気・注意力低下：自動車の運転等危険を伴う機械の操作に従事させないよう注意",
+  "制吐作用により、他剤の中毒・腸閉塞・脳腫瘍等による嘔吐症状を不顕性化するおそれ（定型薬・SDA等の多くに記載）",
+  "妊婦・授乳婦：妊娠後期の投与で新生児に錐体外路症状・離脱症状の報告。有益性が危険性を上回る場合のみ"
+];
+
+// ===== ユーティリティ =====
+const byId = Object.fromEntries(DRUGS.map(d=>[d.id,d]));
+const norm = s => (s||"").normalize("NFKC").toLowerCase()
+  .replace(/[ぁ-ゖ]/g, c=>String.fromCharCode(c.charCodeAt(0)+0x60))
+  .replace(/[\s・\-（）()]/g,"");
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+const fmt = (x,dp=1) => { const v = Math.round(x*Math.pow(10,dp))/Math.pow(10,dp); return v.toLocaleString("ja-JP",{maximumFractionDigits:dp}); };
+const baseOf = d => d.base || d.id;
+const unitOf = d => d.form==="sol" ? "mL/日" : d.form==="lai" ? "mg/回" : "mg/日";
+const eqText = d => d.form==="lai" ? `${d.lai.dose}mg/${d.lai.weeks}週` : d.form==="sol" ? `${d.eq}mg（${fmt(d.eq/d.mgPerMl,2)}mL）` : `${d.eq}mg`;
+// 1Rpの CP換算値（mg/日）
+function cpOf(r){
+  const d = byId[r.id];
+  if(d.form==="lai") return (r.dose/(r.weeks||d.defWeeks)) / (d.lai.dose/d.lai.weeks) * 100;
+  const mg = d.form==="sol" ? r.dose*d.mgPerMl : r.dose;
+  return mg/d.eq*100;
+}
+
+// ===== オートコンプリート =====
+const input = document.getElementById("drugInput");
+const sugg = document.getElementById("sugg");
+const doseInput = document.getElementById("doseInput");
+const weeksInput = document.getElementById("weeksInput");
+const doseLabel = document.getElementById("doseLabel");
+let cands = [], hi = 0, selected = null;
+
+function search(q){
+  const n = norm(q);
+  if(n.length < 3) return [];
+  const res = [];
+  for(const d of DRUGS){
+    const keys = [{k:d.name, t:"一般名"}, ...d.brands.map(b=>({k:b,t:"商品名"})), {k:d.en,t:"英名"}];
+    let best = null;
+    for(const {k,t} of keys){
+      const nk = norm(k), i = nk.indexOf(n);
+      if(i>=0){ const sc = (i===0?0:10) + d.order/1000; if(!best || sc<best.sc) best={sc,label:k,type:t}; }
+    }
+    if(best) res.push({d, ...best});
+  }
+  return res.sort((a,b)=>a.sc-b.sc);
+}
+function renderSugg(){
+  if(!cands.length){ sugg.style.display="none"; return; }
+  sugg.innerHTML = cands.map((c,i)=>
+    `<div data-i="${i}" class="${i===hi?"on":""}"><span>${esc(c.label)}${c.label!==c.d.name?`（${esc(c.d.name)}）`:""}${c.d.form!=="oral"?` <span class="tag">${FORM_LABEL[c.d.form]}</span>`:""}</span><small>CP100=${eqText(c.d)}</small></div>`).join("");
+  sugg.style.display="block";
+  const on = sugg.querySelector(".on"); if(on) on.scrollIntoView({block:"nearest"});
+}
+function setDoseUI(d){
+  const lai = d && d.form==="lai";
+  document.getElementById("weeksField").style.display = lai ? "" : "none";
+  doseLabel.textContent = !d ? "1日量 (mg)" : d.form==="lai" ? "1回量 (mg)" : d.form==="sol" ? "1日量 (mL)" : "1日量 (mg)";
+  doseInput.placeholder = !d ? "mg/日" : unitOf(d);
+  if(lai) weeksInput.value = d.defWeeks;
+}
+function choose(i){
+  const c = cands[i]; if(!c) return;
+  selected = c.d;
+  input.value = c.d.name + (c.label!==c.d.name ? `（${c.label}）` : "");
+  cands = []; renderSugg(); setDoseUI(selected);
+  doseInput.focus(); doseInput.select();
+}
+input.addEventListener("input", ()=>{ selected=null; setDoseUI(null); cands = search(input.value); hi=0; renderSugg(); });
+input.addEventListener("keydown", e=>{
+  if(e.isComposing) return;
+  if(!cands.length){ if(e.key==="Enter"){ e.preventDefault(); tryResolve(); doseInput.focus(); } return; }
+  if(e.key==="Tab" || e.key==="Enter"){ e.preventDefault(); choose(hi); }
+  else if(e.key==="ArrowDown"){ e.preventDefault(); hi=(hi+1)%cands.length; renderSugg(); }
+  else if(e.key==="ArrowUp"){ e.preventDefault(); hi=(hi-1+cands.length)%cands.length; renderSugg(); }
+  else if(e.key==="Escape"){ cands=[]; renderSugg(); }
+});
+sugg.addEventListener("mousedown", e=>{ const el=e.target.closest("[data-i]"); if(el){ e.preventDefault(); choose(+el.dataset.i); }});
+input.addEventListener("blur", ()=>setTimeout(()=>{cands=[];renderSugg();},150));
+function tryResolve(){ if(selected) return selected; const r = search(input.value); if(r.length===1 || (r.length && norm(r[0].label)===norm(input.value))){ selected=r[0].d; setDoseUI(selected);} return selected; }
+
+// ===== Rp管理 =====
+let rps = []; let calculated = false;
+function addRp(){
+  const d = tryResolve();
+  if(!d){ alert("候補から薬剤を選択してください（3文字以上入力→Tab）"); input.focus(); return; }
+  const dose = parseFloat(doseInput.value);
+  if(!(dose>0)){ alert(`${doseLabel.textContent} を入力してください`); doseInput.focus(); return; }
+  const rp = {id:d.id, dose};
+  if(d.form==="lai"){ const w=parseFloat(weeksInput.value); rp.weeks = w>0 ? w : d.defWeeks; }
+  rps.push(rp);
+  input.value=""; doseInput.value=""; selected=null; setDoseUI(null);
+  markStale(); renderRps(); input.focus();
+}
+document.getElementById("addBtn").addEventListener("click", addRp);
+[doseInput, weeksInput].forEach(el=>el.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); addRp(); }}));
+
+const groups = [["oral","経口剤"],["sol","内用液"],["patch","貼付剤"],["lai","持効性注射剤"],["inj","速効性注射剤"]];
+const drugOptions = groups.map(([f,l])=>`<optgroup label="${l}">`+DRUGS.filter(d=>d.form===f).sort((a,b)=>a.order-b.order)
+  .map(d=>`<option value="${d.id}">${esc(d.name)}（${esc(d.brands[0])}）</option>`).join("")+`</optgroup>`).join("");
+function renderRps(){
+  if(typeof runChecker==="function") setTimeout(runChecker,0);
+  const tb = document.getElementById("rpBody");
+  if(!rps.length){ tb.innerHTML = `<tr><td colspan="5" class="empty">Rpがありません。上の入力欄から追加してください。</td></tr>`; return; }
+  tb.innerHTML = rps.map((r,i)=>{
+    const d = byId[r.id];
+    const weeks = d.form==="lai" ? `<span class="unit">／</span><input class="rp-weeks" type="number" min="0" step="any" value="${r.weeks}" data-i="${i}"><span class="unit">週ごと</span>` : "";
+    return `<tr>
+      <td>Rp${i+1}</td>
+      <td><select class="rp-drug" data-i="${i}">${drugOptions.replace(`value="${r.id}"`,`value="${r.id}" selected`)}</select>${calculated?`<div class="hl rp-hl">半減期：${esc(d.hl)}</div>`:""}</td>
+      <td class="r nowrap"><input class="rp-dose" type="number" min="0" step="any" value="${r.dose}" data-i="${i}"><span class="unit">${unitOf(d)}</span>${weeks}</td>
+      <td class="r cpcell">${calculated ? fmt(cpOf(r)) : "—"}</td>
+      <td><button class="del" data-i="${i}" title="削除">削除</button></td></tr>`;
+  }).join("");
+}
+document.getElementById("rpBody").addEventListener("change", e=>{
+  const i = +e.target.dataset.i;
+  if(e.target.classList.contains("rp-drug")){ rps[i].id = e.target.value; const d=byId[rps[i].id]; if(d.form==="lai") rps[i].weeks = rps[i].weeks || d.defWeeks; else delete rps[i].weeks; }
+  if(e.target.classList.contains("rp-dose")) rps[i].dose = parseFloat(e.target.value)||0;
+  if(e.target.classList.contains("rp-weeks")) rps[i].weeks = parseFloat(e.target.value)||byId[rps[i].id].defWeeks;
+  markStale(); renderRps();
+});
+document.getElementById("rpBody").addEventListener("click", e=>{
+  if(e.target.classList.contains("del")){ rps.splice(+e.target.dataset.i,1); markStale(); renderRps(); }
+});
+function markStale(){
+  if(!calculated) return;
+  calculated = false;
+  ["result","equiv","notes"].forEach(id=>document.getElementById(id).classList.add("stale"));
+  document.getElementById("result").insertAdjacentHTML("afterbegin", `<div class="msg cau" id="staleMsg">Rpが変更されました。「CP値を計算」を押して再計算してください。</div>`);
+}
+
+// ===== 出典の表示 =====
+const srcLine = d => d.verified ? `${esc(d.pi)}　${esc(d.rev)}` : "照合不可（PMDAに現行製品の掲載なし）";
+const srcDetails = d => `<details class="src"><summary>出典${revChanged(d)?" ⚠":""}</summary><div>
+  警告・禁忌・用法用量・半減期：${srcLine(d)}（${VERIFIED_DATE} 照合）<br>
+  併用禁忌・併用注意・重大な副作用：${d.id==="tim"?"PMDA掲載PDFから手作業で転記":esc(PI_REV[d.id]||"—")}${PI_CHECKED?`（${PI_CHECKED} 自動取得）`:""}<br>
+  出典：JAPIC／KEGG MEDICUS 掲載の添付文書${d.id==="tim"?"、PMDA掲載PDF":""}<br>
+  CP換算値：稲垣・稲田の等価換算表（日本精神薬学会 掲載版）${d.id==="zeptri"?"。本剤は表に記載がなく、ゼプリオンの値を投与間隔で按分":""}</div></details>`;
+const revNote = d => revChanged(d) ? `<div class="msg cau">添付文書が改訂されています（${esc(PI_REV[d.id])}）。併用・重大な副作用は最新版ですが、警告・禁忌・用法用量・半減期は ${esc(d.rev)} の内容のままです（tools/update_check.py のレポートで差分を確認）。</div>` : "";
+function renderSourceTable(){
+  const rows = groups.map(([f,l])=>DRUGS.filter(d=>d.form===f).sort((a,b)=>a.order-b.order)
+    .map(d=>`<tr><td>${esc(d.name)}<span class="muted">（${esc(d.brands[0])}）</span></td><td>${d.verified?esc(d.pi):"—"}</td><td class="nowrap">${d.verified?esc(d.rev):"照合不可"}${revChanged(d)?` <span class="badge cau" title="最新：${esc(PI_REV[d.id])}">改訂あり</span>`:""}</td></tr>`).join("")).join("");
+  document.getElementById("srcTable").innerHTML = `<table class="srct"><thead><tr><th>薬剤</th><th>照合した添付文書</th><th>改訂版</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ===== 重大な副作用・併用注意の表示 =====
+function saeHtml(d){
+  const L = PI_LISTS[d.id]; if(!L || !L.sae.length) return "";
+  return `<h4>【重大な副作用】<span class="muted" style="font-weight:400">（11.1 全${L.sae.length}項目）</span></h4><ul class="sae">${L.sae.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`;
+}
+function interHtml(d){
+  const L = PI_LISTS[d.id]; if(!L) return "";
+  if(!L.inter.length) return `<p class="muted" style="font-size:12px;margin:6px 0 0">併用注意（10.2）の記載なし</p>`;
+  return `<details class="inter"><summary>併用注意（10.2 全${L.inter.length}項目）</summary><table><thead><tr><th>薬剤名等</th><th>臨床症状・措置方法</th></tr></thead><tbody>${
+    L.inter.map(([a,b])=>`<tr><td>${esc(a).replace(/／/g,"<br>")}</td><td>${esc(b).replace(/／/g,"<br>")}</td></tr>`).join("")}</tbody></table></details>`;
+}
+
+// ===== 計算 =====
+document.getElementById("calcBtn").addEventListener("click", ()=>{
+  if(!rps.length){ alert("Rpを追加してください"); return; }
+  calculated = true;
+  ["result","equiv","notes"].forEach(id=>document.getElementById(id).classList.remove("stale"));
+  renderRps();
+  const total = rps.reduce((s,r)=>s + cpOf(r), 0);
+  const uniq = [...new Set(rps.map(r=>r.id))];
+  const bases = [...new Set(rps.map(r=>baseOf(byId[r.id])))];
+
+  // 結果
+  let html = `<div class="total"><span>合計CP換算値</span><span class="v">${fmt(total)}</span><span class="u">mg/日</span>`;
+  if(total>1000) html += `<span class="badge warn">大量投与（1000mg超）</span>`;
+  else if(total>600) html += `<span class="badge cau">600mg超</span>`;
+  html += `</div>`;
+  const msgs = [];
+  const warn = (t,cls="warn") => msgs.push(`<div class="msg ${cls}">${t}</div>`);
+  // 用量の上限
+  uniq.forEach(id=>{ const d=byId[id]; if(!d.max) return;
+    const lim = d.maxType==="max" ? "添付文書上の上限" : "添付文書の通常用量の上限（上限の明記はなし）";
+    const cls = d.maxType==="max" ? "warn" : "cau";
+    if(d.form==="lai"){
+      rps.filter(r=>r.id===id).forEach(r=>{
+        if(r.dose>d.max) warn(`${esc(d.name)} 1回${fmt(r.dose,2)}mg は${lim}（1回${d.max}mg）を超えています。`, cls);
+        if(r.weeks < d.defWeeks) warn(`${esc(d.name)} の投与間隔（${fmt(r.weeks,1)}週）が添付文書の投与間隔（${d.defWeeks}週）より短くなっています。`, "cau");
+      });
+    } else {
+      const sum = rps.filter(r=>r.id===id).reduce((s,r)=>s+r.dose,0);
+      const mg = d.form==="sol" ? sum*d.mgPerMl : sum;
+      if(mg>d.max) warn(`${esc(d.name)} ${fmt(mg,2)}mg/日${d.form==="sol"?`（${fmt(sum,2)}mL）`:""} は${lim}（${d.max}mg/日）を超えています。`, cls);
+    }
+  });
+  // 組み合わせ（添付文書の記載に基づく）
+  const has = id => uniq.includes(id);
+  const forms = f => uniq.filter(id=>byId[id].form===f);
+  const oralLike = id => ["oral","sol"].includes(byId[id].form);
+  if(uniq.some(id=>baseOf(byId[id])==="ris" && oralLike(id)) && uniq.some(id=>baseOf(byId[id])==="pal" && oralLike(id)))
+    warn("リスペリドン経口剤とパリペリドン経口剤の併用：両剤の添付文書で「併用は避けること」とされています（パリペリドンはリスペリドンの活性代謝物）。");
+  if(has("clz") && forms("lai").length) warn(`クロザピンと持効性注射剤（${forms("lai").map(id=>esc(byId[id].brands[0])).join("、")}）の併用は禁忌です（双方の添付文書）。`);
+  if(has("slt") && has("pim")) warn("スルトプリドとピモジドの併用は禁忌です（バルネチール添付文書「QT延長を起こすことが知られている薬剤（イミプラミン、ピモジド等）を投与中の患者」）。");
+  else if(has("slt") && uniq.length>1) warn("スルトプリドは「QT延長を起こすことが知られている薬剤」との併用が禁忌です。併用中の薬剤のQT延長リスクを確認してください。","cau");
+  if(has("blntape") && has("bln")) warn("ロナセンテープとブロナンセリン経口剤：同時期に投与して過量にならないよう注意（ロナセンテープ添付文書）。","cau");
+  if(has("zep") && uniq.some(id=>["ris","pal","rissol"].includes(id))) warn("ゼプリオンは経口パリペリドン・リスペリドンを併用せずに開始するとされています（ゼプリオン添付文書 7.1）。切替期間かどうか確認してください。","cau");
+  if(has("zep") && has("rlai")) warn("ゼプリオンとリスパダールコンスタ：主活性代謝物はいずれもパリペリドンです。切替時は過量投与にならないよう注意（ゼプリオン添付文書 7.3）。","cau");
+  if(has("zep") && has("zeptri")) warn("ゼプリオンとゼプリオンTRIが同時に入力されています。切替時の重複でないか確認してください。","cau");
+  if(forms("inj").length) warn("速効性注射剤は入力した1日量で換算しています。頓用・単回の投与を含めるかどうかは目的に応じて判断してください。","cau");
+  const unv = uniq.filter(id=>!byId[id].verified);
+  if(unv.length) warn(`${unv.map(id=>esc(byId[id].name)).join("、")}：現在PMDAに掲載製品がなく、添付文書と照合できていません。`,"cau");
+  if(bases.length>=3) warn(`抗精神病薬が${bases.length}成分併用されています（3種類以上の多剤併用は診療報酬上の減算対象となりうる）。`,"cau");
+  else if(bases.length===2) warn("抗精神病薬2成分の併用です。副作用（錐体外路症状・QT延長・抗コリン作用・鎮静）の相加に注意。","cau");
+  document.getElementById("result").innerHTML = html + msgs.join("");
+
+  // 等価量
+  const list = DRUGS.filter(d=>d.form==="oral").sort((a,b)=>a.order-b.order);
+  const badge = (over,d) => !over ? "" : d.maxType==="max" ? `<span class="badge warn">上限超</span>` : `<span class="badge cau">通常量超</span>`;
+  const row = d=>{ const v = total/100*d.eq; const over = d.max && v>d.max;
+    return `<tr><td>${esc(d.name)} <span class="muted" style="font-size:12px">${esc(d.brands.join("・"))}</span>${d.verified?"":` <span class="badge cau">未照合</span>`}</td>
+    <td class="r"><b>${fmt(v, v<10?2:1)}</b> mg/日 ${badge(over,d)}</td>
+    <td class="r muted">${d.max? d.max+" mg"+(d.maxType==="max"?"":"（通常量）"):"—"}</td><td class="r muted">${d.eq} mg</td></tr>`; };
+  const laiRow = d=>{ const v = total/100*d.lai.dose/d.lai.weeks*d.defWeeks; const over = d.max && v>d.max;
+    return `<tr><td>${esc(d.brands[0])} <span class="muted" style="font-size:12px">${esc(d.name)}</span></td>
+    <td class="r"><b>${fmt(v,1)}</b> mg/${d.defWeeks}週 ${badge(over,d)}</td>
+    <td class="r muted">1回${d.max} mg${d.maxType==="max"?"":"（通常量）"}</td><td class="r muted">${eqText(d)}</td></tr>`; };
+  const patchRow = d=>{ const v = total/100*d.eq; const over = d.max && v>d.max;
+    return `<tr><td>${esc(d.brands[0])} <span class="muted" style="font-size:12px">${esc(d.name)}</span></td>
+    <td class="r"><b>${fmt(v,1)}</b> mg/日 ${badge(over,d)}</td><td class="r muted">${d.max} mg</td><td class="r muted">${d.eq} mg</td></tr>`; };
+  const head = c => `<table><thead><tr><th>薬剤</th><th class="r">${c}</th><th class="r">添付文書の上限</th><th class="r">CP100相当</th></tr></thead>`;
+  const lais = DRUGS.filter(d=>d.form==="lai").sort((a,b)=>a.order-b.order);
+  document.getElementById("equiv").innerHTML =
+    `<p class="muted" style="margin:0 0 8px">合計 CP ${fmt(total)}mg/日 を単剤に置き換えた場合の目安量</p>` +
+    head("相当1日量") + `<tbody>${list.slice(0,16).map(row).join("")}</tbody>
+    <tbody id="moreRows" style="display:none">${list.slice(16).map(row).join("")}</tbody></table>
+    <button class="toggle" id="moreBtn">その他の薬剤も表示（${list.length-16}剤）</button>
+    <details class="more"><summary>持効性注射剤・貼付剤での相当量</summary>
+      ${head("相当量")}<tbody>${lais.map(laiRow).join("")}${DRUGS.filter(d=>d.form==="patch").map(patchRow).join("")}</tbody></table>
+      <p class="muted" style="font-size:12px;margin:6px 0 0">持効性注射剤は標準の投与間隔での1回量。導入時の用量（初回・2回目など）や経口剤からの切替方法は各添付文書に従ってください。</p>
+    </details>`;
+  document.getElementById("moreBtn").onclick = e=>{ const m=document.getElementById("moreRows"); const show=m.style.display==="none"; m.style.display=show?"":"none"; e.target.textContent = show?"その他を隠す":`その他の薬剤も表示（${list.length-16}剤）`; };
+
+  // 注意事項
+  const ul = a => `<ul>${a.map(x=>`<li>${x}</li>`).join("")}</ul>`;
+  let notes = uniq.map(id=>{ const d=byId[id];
+    const unv = d.verified ? "" : `<div class="msg cau">現在PMDAに掲載製品がなく、添付文書と照合できていません。以下は参考情報です。</div>`;
+    return `<div class="drugnote"><div class="nh"><h3>${esc(d.name)} <span class="muted" style="font-size:12px;font-weight:400">${esc(d.brands.join("・"))}／${esc(d.cls)}／半減期 ${esc(d.hl)}</span></h3>${srcDetails(d)}</div>
+      ${unv}${revNote(d)}
+      ${d.keikoku.length?`<h4 class="w">【警告】</h4>${ul(d.keikoku)}`:""}
+      ${d.kinki.length?`<h4 class="k">【禁忌】（次の患者には投与しないこと）</h4>${ul(d.kinki)}`:""}
+      ${saeHtml(d)}
+      ${d.chui.length?`<h4>【主な注意点】<span class="muted" style="font-weight:400">（抜粋・要約）</span></h4>${ul(d.chui)}`:""}
+      ${interHtml(d)}</div>`; }).join("");
+  notes += `<div class="drugnote"><h3>多くの抗精神病薬の添付文書に共通する記載</h3>${ul(COMMON_CAUTION)}</div>`;
+  document.getElementById("notes").innerHTML = notes;
+});
+
+// ===== 併用薬チェッカー =====
+// 併用薬の辞書：[一般名, 商品名[], 分類タグ[]]
+// 分類タグは添付文書の「薬剤名等」欄の分類（CYP阻害など）と照合するためのもので、本ツール作成者による付与（参考）。
+const CONMEDS = [
+  ["パロキセチン",["パキシル"],["CYP2D6阻害:strong"]],
+  ["フルボキサミン",["ルボックス","デプロメール"],["CYP1A2阻害:strong","CYP3A4阻害:weak"]],
+  ["セルトラリン",["ジェイゾロフト"],[]],
+  ["エスシタロプラム",["レクサプロ"],["QT延長"]],
+  ["デュロキセチン",["サインバルタ"],["CYP2D6阻害:moderate"]],
+  ["ベンラファキシン",["イフェクサー"],[]],
+  ["ミルナシプラン",["トレドミン"],[]],
+  ["ボルチオキセチン",["トリンテリックス"],[]],
+  ["ミルタザピン",["リフレックス","レメロン"],["中枢神経抑制"]],
+  ["トラゾドン",["デジレル","レスリン"],["中枢神経抑制"]],
+  ["アミトリプチリン",["トリプタノール"],["抗コリン","三環系","中枢神経抑制","QT延長"]],
+  ["イミプラミン",["トフラニール"],["抗コリン","三環系","QT延長"]],
+  ["クロミプラミン",["アナフラニール"],["抗コリン","三環系","QT延長"]],
+  ["ノルトリプチリン",["ノリトレン"],["抗コリン","三環系"]],
+  ["リチウム",["リーマス","炭酸リチウム"],["リチウム"]],
+  ["バルプロ酸",["デパケン","セレニカ","バルプロ酸ナトリウム"],[]],
+  ["カルバマゼピン",["テグレトール"],["CYP3A4誘導:strong","CYP1A2誘導"]],
+  ["ラモトリギン",["ラミクタール"],[]],
+  ["フェニトイン",["アレビアチン","ヒダントール"],["CYP3A4誘導:strong"]],
+  ["フェノバルビタール",["フェノバール"],["CYP3A4誘導:strong","中枢神経抑制","バルビツール酸"]],
+  ["ロラゼパム",["ワイパックス"],["中枢神経抑制","ベンゾジアゼピン"]],
+  ["ジアゼパム",["セルシン","ホリゾン"],["中枢神経抑制","ベンゾジアゼピン"]],
+  ["アルプラゾラム",["ソラナックス","コンスタン"],["中枢神経抑制","ベンゾジアゼピン"]],
+  ["エチゾラム",["デパス"],["中枢神経抑制","ベンゾジアゼピン"]],
+  ["クロナゼパム",["リボトリール","ランドセン"],["中枢神経抑制","ベンゾジアゼピン"]],
+  ["ブロチゾラム",["レンドルミン"],["中枢神経抑制","ベンゾジアゼピン"]],
+  ["フルニトラゼパム",["サイレース"],["中枢神経抑制","ベンゾジアゼピン"]],
+  ["ロフラゼプ酸エチル",["メイラックス"],["中枢神経抑制","ベンゾジアゼピン"]],
+  ["ミダゾラム",["ドルミカム"],["中枢神経抑制","ベンゾジアゼピン"]],
+  ["ゾルピデム",["マイスリー"],["中枢神経抑制"]],
+  ["エスゾピクロン",["ルネスタ"],["中枢神経抑制"]],
+  ["ゾピクロン",["アモバン"],["中枢神経抑制"]],
+  ["スボレキサント",["ベルソムラ"],["中枢神経抑制"]],
+  ["レンボレキサント",["デエビゴ"],["中枢神経抑制"]],
+  ["ヒドロキシジン",["アタラックス"],["中枢神経抑制","抗ヒスタミン","抗コリン","QT延長"]],
+  ["プロメタジン",["ヒベルナ","ピレチア"],["中枢神経抑制","抗ヒスタミン","抗コリン","フェノチアジン"]],
+  ["ビペリデン",["アキネトン"],["抗コリン"]],
+  ["トリヘキシフェニジル",["アーテン"],["抗コリン"]],
+  ["レボドパ",["メネシット","ネオドパストン","マドパー"],["ドパミン作動薬"]],
+  ["プラミペキソール",["ビ・シフロール","ミラペックス"],["ドパミン作動薬"]],
+  ["ロピニロール",["レキップ"],["ドパミン作動薬"]],
+  ["ブロモクリプチン",["パーロデル"],["ドパミン作動薬"]],
+  ["カベルゴリン",["カバサール"],["ドパミン作動薬"]],
+  ["アマンタジン",["シンメトレル"],["ドパミン作動薬"]],
+  ["セレギリン",["エフピー"],["MAO阻害"]],
+  ["メトクロプラミド",["プリンペラン"],["抗ドパミン"]],
+  ["ドンペリドン",["ナウゼリン"],["抗ドパミン"]],
+  ["タンドスピロン",["セディール"],[]],
+  ["クラリスロマイシン",["クラリス","クラリシッド"],["CYP3A4阻害:strong","QT延長"]],
+  ["エリスロマイシン",["エリスロシン"],["CYP3A4阻害:moderate","QT延長"]],
+  ["シプロフロキサシン",["シプロキサン"],["CYP1A2阻害:strong"]],
+  ["レボフロキサシン",["クラビット"],["QT延長"]],
+  ["イトラコナゾール",["イトリゾール"],["CYP3A4阻害:strong","アゾール系"]],
+  ["ボリコナゾール",["ブイフェンド"],["CYP3A4阻害:strong","アゾール系"]],
+  ["ポサコナゾール",["ノクサフィル"],["CYP3A4阻害:strong","アゾール系"]],
+  ["フルコナゾール",["ジフルカン"],["CYP3A4阻害:moderate","アゾール系"]],
+  ["ミコナゾール",["フロリード","オラビ"],["CYP3A4阻害:moderate","アゾール系"]],
+  ["リトナビル",["ノービア","カレトラ"],["CYP3A4阻害:strong","HIVプロテアーゼ"]],
+  ["ニルマトレルビル・リトナビル",["パキロビッド"],["CYP3A4阻害:strong"]],
+  ["エンシトレルビル",["ゾコーバ"],["CYP3A4阻害:strong"]],
+  ["ダルナビル",["プリジスタ"],["CYP3A4阻害:strong","HIVプロテアーゼ"]],
+  ["リファンピシン",["リファジン"],["CYP3A4誘導:strong","CYP1A2誘導"]],
+  ["オメプラゾール",["オメプラール","オメプラゾン"],["CYP1A2誘導"]],
+  ["シメチジン",["タガメット"],["CYP3A4阻害:weak"]],
+  ["テルビナフィン",["ラミシール"],["CYP2D6阻害:strong"]],
+  ["キニジン",["硫酸キニジン"],["CYP2D6阻害:strong","QT延長"]],
+  ["アミオダロン",["アンカロン"],["QT延長"]],
+  ["ジゴキシン",["ジゴシン","ハーフジゴキシン"],["ジギタリス"]],
+  ["ベラパミル",["ワソラン"],["CYP3A4阻害:moderate","降圧剤"]],
+  ["ジルチアゼム",["ヘルベッサー"],["CYP3A4阻害:moderate","降圧剤"]],
+  ["アムロジピン",["ノルバスク","アムロジン"],["降圧剤"]],
+  ["ニフェジピン",["アダラート"],["降圧剤"]],
+  ["カンデサルタン",["ブロプレス"],["降圧剤"]],
+  ["オルメサルタン",["オルメテック"],["降圧剤"]],
+  ["エナラプリル",["レニベース"],["降圧剤"]],
+  ["ドキサゾシン",["カルデナリン"],["降圧剤"]],
+  ["ビソプロロール",["メインテート"],["降圧剤"]],
+  ["アドレナリン",["ボスミン","エピペン"],["アドレナリン"]],
+  ["リドカイン・アドレナリン（歯科用）",["キシロカインカートリッジ","歯科用キシロカイン"],["アドレナリン"]],
+  ["ノルアドレナリン",["ノルアドリナリン"],["アドレナリン作動薬"]],
+  ["モルヒネ",["MSコンチン","オプソ"],["中枢神経抑制","麻薬"]],
+  ["オキシコドン",["オキシコンチン","オキノーム"],["中枢神経抑制","麻薬"]],
+  ["トラマドール",["トラマール","トラムセット"],["中枢神経抑制"]],
+  ["抗がん剤（骨髄抑制を起こす薬剤）",["化学療法"],["骨髄抑制"]],
+  ["アルコール（飲酒）",["飲酒","酒"],["アルコール","中枢神経抑制"]],
+  ["喫煙",["タバコ","たばこ","ニコチン"],["喫煙","CYP1A2誘導"]],
+  ["グレープフルーツジュース",["グレープフルーツ"],["CYP3A4阻害:moderate"]]
+];
+// 添付文書「薬剤名等」の分類表現と、分類タグの対応
+const CLASS_RULES = [
+  ["CYP3A4阻害", /CYP3A4?[^／]{0,10}阻害/], ["CYP3A4誘導", /CYP3A4?[^／]{0,10}誘導|代謝酵素[^／]{0,10}誘導/],
+  ["CYP2D6阻害", /CYP2D6[^／]{0,10}阻害/], ["CYP1A2阻害", /CYP1A2[^／]{0,10}阻害/], ["CYP1A2誘導", /CYP1A2[^／]{0,10}誘導/],
+  ["アゾール系", /アゾール系/], ["HIVプロテアーゼ", /HIVプロテアーゼ/],
+  ["中枢神経抑制", /中枢神経抑制/], ["バルビツール酸", /バルビツール/], ["ベンゾジアゼピン", /ベンゾジアゼピン/],
+  ["抗コリン", /抗コリン/], ["三環系", /三環系/], ["ドパミン作動薬", /ドパミン作動|レボドパ|ドパミン受容体作動/],
+  ["抗ドパミン", /抗ドパミン|ベンザミド/], ["降圧剤", /降圧/], ["QT延長", /QT/], ["アルコール", /アルコール|飲酒/],
+  ["リチウム", /リチウム/], ["アドレナリン", /アドレナリン(?!作動薬)/], ["アドレナリン作動薬", /アドレナリン作動薬|ノルアドレナリン/],
+  ["喫煙", /喫煙|ニコチン/], ["ジギタリス", /ジギタリス/], ["骨髄抑制", /骨髄抑制/], ["麻薬", /麻薬|オピオイド/],
+  ["抗ヒスタミン", /抗ヒスタミン/], ["フェノチアジン", /フェノチアジン/], ["MAO阻害", /MAO阻害|モノアミン酸化酵素阻害/]
+];
+const LV = {weak:1, moderate:2, strong:3};
+function rowRequiredLevel(t){ return /強[いく]|強力/.test(t) ? 3 : /中程度以上|中等度以上/.test(t) ? 2 : 1; }
+function matchRow(med, rowName, isContra){
+  const t = rowName;
+  const names = [med.name, ...med.brands].map(n=>n.replace(/（.*?）/g,""));
+  const nameHit = names.find(n=>n.length>=2 && t.includes(n));
+  if(nameHit) return {type:"name", why:`名称一致（${nameHit}）`};
+  // 併用禁忌で薬剤名を列挙し「等」のない行は閉じたリスト → 名称のみで照合（分類では当てはめない）
+  if(isContra && t.includes("／") && !/等|など/.test(t)) return null;
+  for(const tag of med.tags){
+    const [cls, lv] = tag.split(":");
+    const rule = CLASS_RULES.find(r=>r[0]===cls); if(!rule || !rule[1].test(t)) continue;
+    if(lv && LV[lv] < rowRequiredLevel(t)) continue;
+    return {type:"class", why:`分類一致：${cls}${lv?`（${{weak:"弱",moderate:"中程度",strong:"強"}[lv]}）`:""}・参考`};
+  }
+  return null;
+}
+
+let conmeds = [];   // {name, brands, tags, free}
+const cmInput = document.getElementById("cmInput"), cmSugg = document.getElementById("cmSugg");
+let cmCands = [], cmHi = 0;
+function cmSearch(q){
+  const n = norm(q); if(n.length<3) return [];
+  return CONMEDS.map(([name,brands,tags])=>{
+    const keys=[name,...brands]; let sc=null, label=null;
+    keys.forEach(k=>{ const i=norm(k).indexOf(n); if(i>=0 && (sc===null || i<sc)){ sc=i; label=k; } });
+    return sc===null?null:{name,brands,tags,label,sc};
+  }).filter(Boolean).sort((a,b)=>a.sc-b.sc);
+}
+function cmRenderSugg(){
+  if(!cmCands.length){ cmSugg.style.display="none"; return; }
+  cmSugg.innerHTML = cmCands.map((c,i)=>`<div data-i="${i}" class="${i===cmHi?"on":""}"><span>${esc(c.label)}${c.label!==c.name?`（${esc(c.name)}）`:""}</span><small>${esc(c.tags.map(t=>t.split(":")[0]).join("・"))}</small></div>`).join("");
+  cmSugg.style.display="block";
+  const on = cmSugg.querySelector(".on"); if(on) on.scrollIntoView({block:"nearest"});
+}
+function cmAdd(c){
+  if(!c){ const v=cmInput.value.trim(); if(v.length<2) return; c={name:v, brands:[], tags:[], free:true}; }
+  if(!conmeds.some(m=>m.name===c.name)) conmeds.push({name:c.name, brands:c.brands, tags:c.tags, free:!!c.free});
+  cmInput.value=""; cmCands=[]; cmRenderSugg(); renderConmeds(); runChecker();
+}
+cmInput.addEventListener("input", ()=>{ cmCands=cmSearch(cmInput.value); cmHi=0; cmRenderSugg(); });
+cmInput.addEventListener("keydown", e=>{
+  if(e.isComposing) return;
+  if(e.key==="Enter" && !cmCands.length){ e.preventDefault(); cmAdd(null); return; }
+  if(!cmCands.length) return;
+  if(e.key==="Tab"||e.key==="Enter"){ e.preventDefault(); cmAdd(cmCands[cmHi]); }
+  else if(e.key==="ArrowDown"){ e.preventDefault(); cmHi=(cmHi+1)%cmCands.length; cmRenderSugg(); }
+  else if(e.key==="ArrowUp"){ e.preventDefault(); cmHi=(cmHi-1+cmCands.length)%cmCands.length; cmRenderSugg(); }
+  else if(e.key==="Escape"){ cmCands=[]; cmRenderSugg(); }
+});
+cmSugg.addEventListener("mousedown", e=>{ const el=e.target.closest("[data-i]"); if(el){ e.preventDefault(); cmAdd(cmCands[+el.dataset.i]); }});
+cmInput.addEventListener("blur", ()=>setTimeout(()=>{cmCands=[];cmRenderSugg();},150));
+document.getElementById("cmChips").addEventListener("click", e=>{ const b=e.target.closest("[data-x]"); if(b){ conmeds.splice(+b.dataset.x,1); renderConmeds(); runChecker(); }});
+function renderConmeds(){
+  document.getElementById("cmChips").innerHTML = conmeds.map((m,i)=>`<span class="chip">${esc(m.name)}${m.free?`<small>（辞書外・名称のみ照合）</small>`:""}<button data-x="${i}" title="削除">×</button></span>`).join("");
+}
+function runChecker(){
+  const out = document.getElementById("cmResult");
+  const rpIds = [...new Set(rps.map(r=>r.id))].filter(id=>PI_LISTS[id]);
+  if(!rpIds.length){ out.innerHTML = `<p class="muted">Rpを追加すると、Rpの添付文書（併用禁忌・併用注意）と照合します。</p>`; return; }
+  const rpOnly = conmeds.length===0;
+  const blocks = [];
+  // 併用薬 × Rp
+  conmeds.forEach(m=>{
+    const hits=[];
+    rpIds.forEach(id=>{ const L=PI_LISTS[id], d=byId[id], hs=[];
+      (L.contra||[]).forEach(([a,b])=>{ const h=matchRow(m,a,true); if(h) hs.push({d,lvl:"contra",a,b,h}); });
+      L.inter.forEach(([a,b])=>{ const h=matchRow(m,a); if(h) hs.push({d,lvl:"inter",a,b,h}); });
+      // 同じRp薬剤で名称一致があれば、分類一致は重複として省く
+      hits.push(...(hs.some(x=>x.h.type==="name") ? hs.filter(x=>x.h.type==="name") : hs));
+    });
+    blocks.push(cmBlock(esc(m.name), hits, m.free));
+  });
+  // Rp同士（名称が添付文書に明記されているもの）
+  const rpHits=[];
+  rpIds.forEach(id=>{ const L=PI_LISTS[id], d=byId[id];
+    rpIds.filter(o=>o!==id && baseOf(byId[o])!==baseOf(d)).forEach(o=>{ const od=byId[o];
+      const med={name:DRUGS.find(x=>x.id===baseOf(od)).name, brands:od.brands, tags:[]};
+      (L.contra||[]).forEach(([a,b])=>{ const h=matchRow(med,a,true); if(h) rpHits.push({d,lvl:"contra",a,b,h,other:od}); });
+      L.inter.forEach(([a,b])=>{ const h=matchRow(med,a); if(h) rpHits.push({d,lvl:"inter",a,b,h,other:od}); });
+    });
+  });
+  if(rpIds.length>1) blocks.push(cmBlock("Rp同士（薬剤名が添付文書に明記されているもの）", rpHits, false, true));
+  out.innerHTML = (rpOnly?`<p class="muted">併用薬を追加すると照合します。</p>`:"") + blocks.join("");
+}
+function cmBlock(title, hits, free, rpPair){
+  const short = s => s.length>70 ? s.slice(0,70)+"…" : s;
+  const nC = hits.filter(h=>h.lvl==="contra").length, nI = hits.length-nC;
+  const sum = nC ? `<span class="badge warn">併用禁忌 ${nC}</span>` : nI ? `<span class="badge cau">併用注意 ${nI}</span>` : `<span class="badge ok">該当なし</span>`;
+  const rows = hits.map(h=>`<tr class="${h.lvl}"><td class="nowrap">${h.lvl==="contra"?`<span class="badge warn">禁忌</span>`:`<span class="badge cau">注意</span>`}</td>
+    <td>${esc(h.d.name)}${rpPair?` × ${esc(h.other.name)}`:""}<div class="muted" style="font-size:11px">${esc(h.h.why)}</div></td>
+    <td><div class="muted" style="font-size:11px">${esc(short(h.a))}</div>${esc(h.b).replace(/／/g,"<br>")}</td></tr>`).join("");
+  return `<div class="cmblock"><div class="cmhead"><b>${title}</b> ${sum}</div>${hits.length?`<table><thead><tr><th></th><th>Rpの薬剤（照合根拠）</th><th>添付文書の記載（薬剤名等／臨床症状・措置方法）</th></tr></thead><tbody>${rows}</tbody></table>`
+    : `<p class="muted" style="font-size:12px;margin:4px 0 0">Rp薬剤の添付文書（10.1 併用禁忌・10.2 併用注意）に該当する記載は見つかりませんでした${free?"（辞書にない薬剤のため名称のみで照合）":""}。</p>`}</div>`;
+}
+
+renderRps();
+renderSourceTable();
+if(!window.PI_LISTS) document.querySelector(".wrap").insertAdjacentHTML("afterbegin", `<div class="msg warn" style="margin-bottom:12px">pi_data.js が読み込めません。cp換算.html と同じフォルダに pi_data.js があるか確認してください（併用禁忌・併用注意・重大な副作用・併用薬チェックが表示されません）。</div>`);
+{ const n = DRUGS.filter(revChanged).length;
+  if(PI_CHECKED) document.getElementById("metaSum").textContent += `（最終自動チェック ${PI_CHECKED}${n?`・改訂あり ${n}件`:""}）`; }
+input.focus();
+</script>
+</body>
+</html>
